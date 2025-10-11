@@ -1,0 +1,23 @@
+export_entity_list:
+  alias: Export Entity List
+  sequence:
+  - data:
+      title: Entity List Export
+      notification_id: entity_list
+      message: '{% set entities = states | map(attribute=''entity_id'') | sort | list
+        %}
+
+        Total Entities: {{ entities | count }}
+
+
+        {% for entity in entities %}
+
+        - {{ entity }}
+
+        {% endfor %}
+
+        '
+    action: persistent_notification.create
+  mode: single
+  icon: mdi:format-list-bulleted
+  description: ''

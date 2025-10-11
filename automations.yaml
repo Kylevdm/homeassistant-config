@@ -181,223 +181,6 @@
   - service: solcast_solar.update_forecasts
     data: {}
   mode: single
-- id: '1704628265493'
-  alias: Stairs Motion Lighting Control
-  description: Controls stairs lights based on motion with time-based brightness
-  triggers:
-  - entity_id: binary_sensor.stairs_motion
-    to: 'on'
-    trigger: state
-  - entity_id: binary_sensor.stairs_motion
-    to: 'off'
-    for:
-      minutes: 2
-    trigger: state
-  conditions: []
-  actions:
-  - choose:
-    - conditions:
-      - condition: state
-        entity_id: binary_sensor.stairs_motion
-        state: 'on'
-      - condition: time
-        after: '23:00:00'
-        before: 07:00:00
-      sequence:
-      - target:
-          entity_id:
-          - light.stairs_1
-          - light.stairs_2
-        data:
-          brightness_pct: 10
-          transition: 1
-        action: light.turn_on
-    - conditions:
-      - condition: state
-        entity_id: binary_sensor.stairs_motion
-        state: 'on'
-      - condition: time
-        after: 07:00:00
-        before: 09:00:00
-      sequence:
-      - target:
-          entity_id:
-          - light.stairs_1
-          - light.stairs_2
-        data:
-          brightness_pct: 50
-          transition: 1
-        action: light.turn_on
-    - conditions:
-      - condition: state
-        entity_id: binary_sensor.stairs_motion
-        state: 'on'
-      - condition: time
-        after: 09:00:00
-        before: '23:00:00'
-      sequence:
-      - target:
-          entity_id:
-          - light.stairs_1
-          - light.stairs_2
-        data:
-          brightness_pct: 100
-          transition: 1
-        action: light.turn_on
-    default:
-    - target:
-        entity_id:
-        - light.stairs_1
-        - light.stairs_2
-      data:
-        transition: 2
-      action: light.turn_off
-  mode: restart
-- id: '1732100906949'
-  alias: v2l on
-  description: Charge the battery when battery is below 40%
-  triggers:
-  - trigger: numeric_state
-    entity_id:
-    - sensor.solax_battery_soc
-    below: 40
-  conditions:
-  - condition: time
-    after: 05:30:00
-    before: '22:45:00'
-  actions:
-  - type: turn_on
-    device_id: c5870b2314745764ce01c1797ba2e110
-    entity_id: d6cec72fd388a9d83f8ff075be27dcec
-    domain: switch
-  mode: single
-- id: '1732100988729'
-  alias: v2l off
-  description: Turns V2L off when battery hits 80%
-  triggers:
-  - trigger: numeric_state
-    entity_id:
-    - sensor.solax_battery_soc
-    above: 80
-    for:
-      hours: 0
-      minutes: 0
-      seconds: 30
-  conditions: []
-  actions:
-  - type: turn_off
-    device_id: c5870b2314745764ce01c1797ba2e110
-    entity_id: d6cec72fd388a9d83f8ff075be27dcec
-    domain: switch
-  mode: single
-- id: '1732917592216'
-  alias: Battery 60%
-  description: ''
-  triggers:
-  - type: battery_level
-    device_id: c93222e997d5d1c1a65c2ba912751898
-    entity_id: 4891782e0def6d2e604ffe71f7e39c4a
-    domain: sensor
-    trigger: device
-    below: 60
-    for:
-      hours: 0
-      minutes: 0
-      seconds: 30
-  conditions: []
-  actions:
-  - action: light.turn_on
-    metadata: {}
-    data:
-      rgb_color:
-      - 255
-      - 255
-      - 0
-      brightness_pct: 100
-    target:
-      device_id: c73431f1522f4dfcea7a412c3dfb280a
-  mode: single
-- id: '1732917623850'
-  alias: Battery 80%
-  description: ''
-  triggers:
-  - type: battery_level
-    device_id: c93222e997d5d1c1a65c2ba912751898
-    entity_id: 4891782e0def6d2e604ffe71f7e39c4a
-    domain: sensor
-    trigger: device
-    below: 80
-    for:
-      hours: 0
-      minutes: 0
-      seconds: 30
-  conditions: []
-  actions:
-  - action: light.turn_on
-    metadata: {}
-    data:
-      rgb_color:
-      - 0
-      - 255
-      - 0
-      brightness_pct: 100
-    target:
-      device_id: c73431f1522f4dfcea7a412c3dfb280a
-  mode: single
-- id: '1732917650480'
-  alias: Battery 40%
-  description: ''
-  triggers:
-  - type: battery_level
-    device_id: c93222e997d5d1c1a65c2ba912751898
-    entity_id: 4891782e0def6d2e604ffe71f7e39c4a
-    domain: sensor
-    trigger: device
-    below: 40
-    for:
-      hours: 0
-      minutes: 0
-      seconds: 30
-  conditions: []
-  actions:
-  - action: light.turn_on
-    metadata: {}
-    data:
-      rgb_color:
-      - 255
-      - 128
-      - 0
-      brightness_pct: 100
-    target:
-      device_id: c73431f1522f4dfcea7a412c3dfb280a
-  mode: single
-- id: '1732917678116'
-  alias: Battery 25%
-  description: ''
-  triggers:
-  - type: battery_level
-    device_id: c93222e997d5d1c1a65c2ba912751898
-    entity_id: 4891782e0def6d2e604ffe71f7e39c4a
-    domain: sensor
-    trigger: device
-    below: 25
-    for:
-      hours: 0
-      minutes: 0
-      seconds: 30
-  conditions: []
-  actions:
-  - action: light.turn_on
-    metadata: {}
-    data:
-      rgb_color:
-      - 255
-      - 0
-      - 0
-      brightness_pct: 100
-    target:
-      device_id: c73431f1522f4dfcea7a412c3dfb280a
-  mode: single
 - id: '1737918637703'
   alias: Battery SOC Based V2L Control
   description: Controls V2L switch based on battery SOC with different thresholds
@@ -470,3 +253,67 @@
   variables:
     evening_hours: '{{ now().hour >= 20 }}'
     current_soc: '{{ states(''sensor.solax_battery_soc'') | float }}'
+- id: '1760173080569'
+  alias: Battery Status Indicator
+  description: ''
+  triggers:
+  - entity_id: sensor.solisac_battery_soc
+    trigger: state
+  conditions: []
+  actions:
+  - choose:
+    - conditions:
+      - condition: numeric_state
+        entity_id: sensor.solisac_battery_soc
+        above: 79.9
+      sequence:
+      - target:
+          entity_id: light.battery_sensor
+        data:
+          rgb_color:
+          - 0
+          - 255
+          - 0
+          brightness_pct: 100
+        action: light.turn_on
+    - conditions:
+      - condition: numeric_state
+        entity_id: sensor.solisac_battery_soc
+        above: 59.9
+        below: 80
+      sequence:
+      - target:
+          entity_id: light.battery_sensor
+        data:
+          rgb_color:
+          - 255
+          - 255
+          - 0
+          brightness_pct: 100
+        action: light.turn_on
+    - conditions:
+      - condition: numeric_state
+        entity_id: sensor.solisac_battery_soc
+        above: 39.9
+        below: 60
+      sequence:
+      - target:
+          entity_id: light.battery_sensor
+        data:
+          rgb_color:
+          - 255
+          - 128
+          - 0
+          brightness_pct: 100
+        action: light.turn_on
+    default:
+    - target:
+        entity_id: light.battery_sensor
+      data:
+        rgb_color:
+        - 255
+        - 0
+        - 0
+        brightness_pct: 100
+      action: light.turn_on
+  mode: restart
