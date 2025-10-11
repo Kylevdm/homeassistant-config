@@ -1,0 +1,30 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "title": "Carbon Intensity UK",
+                "description": "If you need help with the configuration have a look here: https://github.com/jscruz/sensor.carbon_intensity_uk",
+                "data": {
+                    "postcode": "UK Postcode (e.g. SW1)"
+                }
+            }
+        },
+        "error": {
+            "postcode": "Postcode is wrong."
+        },
+        "abort": {
+            "single_instance_allowed": "Only a single configuration of Carbon Intensity UK is allowed."
+        }
+    },
+    "options": {
+        "step": {
+            "user": {
+                "data": {
+                    "binary_sensor": "Binary sensor enabled",
+                    "sensor": "Sensor enabled",
+                    "switch": "Switch enabled"
+                }
+            }
+        }
+    }
+}

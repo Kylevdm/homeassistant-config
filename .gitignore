@@ -1,0 +1,27 @@
+# Secrets
+secrets.yaml
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+
+# Logs
+*.log
+*.log.*
+
+# Storage (has tokens)
+.storage/
+.cloud/
+
+# SSH
+.ssh/
+
+# Other
+.google.token
+known_devices.yaml
+*.conf
+ip_bans.yaml
+.uuid
+.HA_VERSION
+home-assistant_v2.*

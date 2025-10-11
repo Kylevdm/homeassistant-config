@@ -1,0 +1,472 @@
+- id: '1697887163635'
+  alias: Solcast update
+  description: Update Solcast solar forecast
+  trigger:
+  - platform: time
+    at: '23:00:00'
+  - platform: time
+    at: '12:00:00'
+  - platform: time
+    at: 04:00:00
+  condition: []
+  action:
+  - service: solcast_solar.update_forecasts
+    data: {}
+  mode: single
+- id: '1701901738658'
+  alias: Solar - Battery Charge Automation
+  description: Main automatic battery charging function
+  trigger:
+  - platform: time
+    at: '23:05:00'
+  condition: []
+  action:
+  - service: input_number.set_value
+    data:
+      value: '{{ states(''sensor.solax_house_load_today'') }}'
+    target:
+      entity_id: input_number.expected_consumption
+  - delay:
+      hours: 0
+      minutes: 0
+      seconds: 10
+      milliseconds: 0
+  - parallel:
+    - service: number.set_value
+      data:
+        value: '{{ states(''sensor.soc_charge_end_time_hhmm'').split('':'')[0] }}'
+      target:
+        entity_id: number.solax_timed_charge_end_hours
+    - service: number.set_value
+      data:
+        value: '{{ states(''sensor.soc_charge_end_time_hhmm'').split('':'')[1] }}'
+      target:
+        entity_id: number.solax_timed_charge_end_minutes
+  - delay:
+      hours: 0
+      minutes: 0
+      seconds: 10
+      milliseconds: 0
+  - service: button.press
+    data: {}
+    target:
+      entity_id: button.solax_update_charge_discharge_times
+  mode: single
+- id: '1701901762534'
+  alias: Solar - Charge Current Settings
+  description: This Automation automatically sets the Solax Timed Charge Current to
+    match the user inputs of battery capacity, overdischarge soc and forcecharge soc
+  trigger:
+  - platform: state
+    entity_id:
+    - input_number.battery_capacity
+    - input_number.overdischarge_soc
+    - input_number.force_charge_soc
+    - input_number.offpeak_window
+  condition: []
+  action:
+  - service: number.set_value
+    data:
+      value: '{{ states(''sensor.calculated_charge_current'') }}'
+    target:
+      entity_id: number.solax_timed_charge_current
+  mode: single
+- id: '1701901781715'
+  alias: Solar - Expected Consumption Low State Tracker
+  description: If the number input number 'Expected Consumption' is overtaken by the
+    Solis sensor 'Solax House Load Today', the value from the sensor is set to the
+    number input to avoid peculiarities in battery SoC forecasting.
+  trigger:
+  - platform: state
+    entity_id:
+    - sensor.solax_house_load_today
+  condition:
+  - condition: numeric_state
+    entity_id: sensor.solax_house_load_today
+    above: input_number.expected_consumption
+  action:
+  - service: input_number.set_value
+    data:
+      value: '{{ states(''sensor.solax_house_load_today'') }}'
+    target:
+      entity_id: input_number.expected_consumption
+  mode: single
+- id: '1701901849760'
+  alias: Solar - Restore Consumption Defaults
+  description: Sets todays expected consumption and tomorrows expected consumption
+    to 10, Target SoC to 4.5, base load to 0.23, and boost charge to 0
+  trigger:
+  - platform: state
+    entity_id:
+    - input_button.reset_consumption_defaults
+  condition: []
+  action:
+  - service: input_number.set_value
+    data:
+      value: 10
+    target:
+      entity_id: input_number.expected_consumption
+  - service: input_number.set_value
+    data:
+      value: 10
+    target:
+      entity_id: input_number.expected_consumption_tomorrow
+  - service: input_number.set_value
+    data:
+      value: 4.5
+    target:
+      entity_id: input_number.target_usable_soc
+  - service: input_number.set_value
+    data:
+      value: 0.23
+    target:
+      entity_id:
+      - input_number.base_load
+  - service: input_number.set_value
+    data:
+      value: 0
+    target:
+      entity_id: input_number.boost_charge
+  - service: number.set_value
+    data:
+      value: '55'
+    target:
+      entity_id: number.solax_timed_charge_current
+  mode: single
+- id: '1701901864598'
+  alias: Solar - Update Times
+  description: Manually updates Inverter Charge and Discharge Times from Solax Modbus
+    Integration
+  trigger: []
+  condition: []
+  action:
+  - parallel:
+    - service: number.set_value
+      data:
+        value: '{{ states(''sensor.soc_charge_end_time_hhmm'').split('':'')[0] }}'
+      target:
+        entity_id: number.solax_timed_charge_end_hours
+    - service: number.set_value
+      data:
+        value: '{{ states(''sensor.soc_charge_end_time_hhmm'').split('':'')[1] }}'
+      target:
+        entity_id: number.solax_timed_charge_end_minutes
+  - delay:
+      hours: 0
+      minutes: 0
+      seconds: 5
+      milliseconds: 0
+  - service: button.press
+    data: {}
+    target:
+      entity_id:
+      - button.solax_update_charge_discharge_times
+  mode: single
+- id: '1701901878676'
+  alias: Solcast - API Poll Schedule
+  description: New API call Solcast
+  trigger:
+  - platform: time
+    at: 06:00:00
+  - platform: time
+    at: '10:00:00'
+  - platform: time
+    at: '14:00:00'
+  - platform: time
+    at: '18:00:00'
+  - platform: time
+    at: '23:00:00'
+  condition: []
+  action:
+  - service: solcast_solar.update_forecasts
+    data: {}
+  mode: single
+- id: '1704628265493'
+  alias: Stairs Motion Lighting Control
+  description: Controls stairs lights based on motion with time-based brightness
+  triggers:
+  - entity_id: binary_sensor.stairs_motion
+    to: 'on'
+    trigger: state
+  - entity_id: binary_sensor.stairs_motion
+    to: 'off'
+    for:
+      minutes: 2
+    trigger: state
+  conditions: []
+  actions:
+  - choose:
+    - conditions:
+      - condition: state
+        entity_id: binary_sensor.stairs_motion
+        state: 'on'
+      - condition: time
+        after: '23:00:00'
+        before: 07:00:00
+      sequence:
+      - target:
+          entity_id:
+          - light.stairs_1
+          - light.stairs_2
+        data:
+          brightness_pct: 10
+          transition: 1
+        action: light.turn_on
+    - conditions:
+      - condition: state
+        entity_id: binary_sensor.stairs_motion
+        state: 'on'
+      - condition: time
+        after: 07:00:00
+        before: 09:00:00
+      sequence:
+      - target:
+          entity_id:
+          - light.stairs_1
+          - light.stairs_2
+        data:
+          brightness_pct: 50
+          transition: 1
+        action: light.turn_on
+    - conditions:
+      - condition: state
+        entity_id: binary_sensor.stairs_motion
+        state: 'on'
+      - condition: time
+        after: 09:00:00
+        before: '23:00:00'
+      sequence:
+      - target:
+          entity_id:
+          - light.stairs_1
+          - light.stairs_2
+        data:
+          brightness_pct: 100
+          transition: 1
+        action: light.turn_on
+    default:
+    - target:
+        entity_id:
+        - light.stairs_1
+        - light.stairs_2
+      data:
+        transition: 2
+      action: light.turn_off
+  mode: restart
+- id: '1732100906949'
+  alias: v2l on
+  description: Charge the battery when battery is below 40%
+  triggers:
+  - trigger: numeric_state
+    entity_id:
+    - sensor.solax_battery_soc
+    below: 40
+  conditions:
+  - condition: time
+    after: 05:30:00
+    before: '22:45:00'
+  actions:
+  - type: turn_on
+    device_id: c5870b2314745764ce01c1797ba2e110
+    entity_id: d6cec72fd388a9d83f8ff075be27dcec
+    domain: switch
+  mode: single
+- id: '1732100988729'
+  alias: v2l off
+  description: Turns V2L off when battery hits 80%
+  triggers:
+  - trigger: numeric_state
+    entity_id:
+    - sensor.solax_battery_soc
+    above: 80
+    for:
+      hours: 0
+      minutes: 0
+      seconds: 30
+  conditions: []
+  actions:
+  - type: turn_off
+    device_id: c5870b2314745764ce01c1797ba2e110
+    entity_id: d6cec72fd388a9d83f8ff075be27dcec
+    domain: switch
+  mode: single
+- id: '1732917592216'
+  alias: Battery 60%
+  description: ''
+  triggers:
+  - type: battery_level
+    device_id: c93222e997d5d1c1a65c2ba912751898
+    entity_id: 4891782e0def6d2e604ffe71f7e39c4a
+    domain: sensor
+    trigger: device
+    below: 60
+    for:
+      hours: 0
+      minutes: 0
+      seconds: 30
+  conditions: []
+  actions:
+  - action: light.turn_on
+    metadata: {}
+    data:
+      rgb_color:
+      - 255
+      - 255
+      - 0
+      brightness_pct: 100
+    target:
+      device_id: c73431f1522f4dfcea7a412c3dfb280a
+  mode: single
+- id: '1732917623850'
+  alias: Battery 80%
+  description: ''
+  triggers:
+  - type: battery_level
+    device_id: c93222e997d5d1c1a65c2ba912751898
+    entity_id: 4891782e0def6d2e604ffe71f7e39c4a
+    domain: sensor
+    trigger: device
+    below: 80
+    for:
+      hours: 0
+      minutes: 0
+      seconds: 30
+  conditions: []
+  actions:
+  - action: light.turn_on
+    metadata: {}
+    data:
+      rgb_color:
+      - 0
+      - 255
+      - 0
+      brightness_pct: 100
+    target:
+      device_id: c73431f1522f4dfcea7a412c3dfb280a
+  mode: single
+- id: '1732917650480'
+  alias: Battery 40%
+  description: ''
+  triggers:
+  - type: battery_level
+    device_id: c93222e997d5d1c1a65c2ba912751898
+    entity_id: 4891782e0def6d2e604ffe71f7e39c4a
+    domain: sensor
+    trigger: device
+    below: 40
+    for:
+      hours: 0
+      minutes: 0
+      seconds: 30
+  conditions: []
+  actions:
+  - action: light.turn_on
+    metadata: {}
+    data:
+      rgb_color:
+      - 255
+      - 128
+      - 0
+      brightness_pct: 100
+    target:
+      device_id: c73431f1522f4dfcea7a412c3dfb280a
+  mode: single
+- id: '1732917678116'
+  alias: Battery 25%
+  description: ''
+  triggers:
+  - type: battery_level
+    device_id: c93222e997d5d1c1a65c2ba912751898
+    entity_id: 4891782e0def6d2e604ffe71f7e39c4a
+    domain: sensor
+    trigger: device
+    below: 25
+    for:
+      hours: 0
+      minutes: 0
+      seconds: 30
+  conditions: []
+  actions:
+  - action: light.turn_on
+    metadata: {}
+    data:
+      rgb_color:
+      - 255
+      - 0
+      - 0
+      brightness_pct: 100
+    target:
+      device_id: c73431f1522f4dfcea7a412c3dfb280a
+  mode: single
+- id: '1737918637703'
+  alias: Battery SOC Based V2L Control
+  description: Controls V2L switch based on battery SOC with different thresholds
+    for evening hours
+  triggers:
+  - entity_id: sensor.solax_battery_soc
+    id: soc_trigger
+    above: 20
+    below: 80
+    trigger: numeric_state
+  conditions: []
+  actions:
+  - choose:
+    - conditions:
+      - condition: template
+        value_template: '{{ evening_hours }}'
+      sequence:
+      - choose:
+        - conditions:
+          - condition: numeric_state
+            entity_id: sensor.solax_battery_soc
+            above: 19.9
+            below: 40
+          - condition: state
+            entity_id: switch.v2l
+            state: 'off'
+          sequence:
+          - target:
+              entity_id: switch.v2l
+            action: switch.turn_on
+        - conditions:
+          - condition: numeric_state
+            entity_id: sensor.solax_battery_soc
+            above: 39.9
+          - condition: state
+            entity_id: switch.v2l
+            state: 'on'
+          sequence:
+          - target:
+              entity_id: switch.v2l
+            action: switch.turn_off
+    - conditions:
+      - condition: template
+        value_template: '{{ not evening_hours }}'
+      sequence:
+      - choose:
+        - conditions:
+          - condition: numeric_state
+            entity_id: sensor.solax_battery_soc
+            above: 39.9
+            below: 80
+          - condition: state
+            entity_id: switch.v2l
+            state: 'off'
+          sequence:
+          - target:
+              entity_id: switch.v2l
+            action: switch.turn_on
+        - conditions:
+          - condition: numeric_state
+            entity_id: sensor.solax_battery_soc
+            above: 79.9
+          - condition: state
+            entity_id: switch.v2l
+            state: 'on'
+          sequence:
+          - target:
+              entity_id: switch.v2l
+            action: switch.turn_off
+  variables:
+    evening_hours: '{{ now().hour >= 20 }}'
+    current_soc: '{{ states(''sensor.solax_battery_soc'') | float }}'

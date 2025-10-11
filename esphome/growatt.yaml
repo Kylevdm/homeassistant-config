@@ -1,0 +1,86 @@
+substitutions:
+  device_description: Growatt Inverter
+  friendly_name:  Growatt Inverter
+  name: Growatt
+  
+esphome:
+  name: growatt
+
+esp8266:
+  board: nodemcuv2
+
+# Enable logging
+logger:
+  level: DEBUG
+  baud_rate: 0
+# Enable Home Assistant API
+api:
+
+ota:
+ - platform: esphome
+   password:  "ota_password"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Growatt Fallback Hotspot"
+    password: "N3bMU1t3L9gm"
+
+captive_portal:
+
+uart:
+  - id: gw_uart
+    baud_rate: 9600
+    tx_pin: GPIO1 # TX pin
+    rx_pin: GPIO3 # RX pin
+
+modbus:
+  uart_id: gw_uart
+  flow_control_pin: D2 # GPIO4
+
+
+# My model: Growatt MIC 2000 TL-X single phase inverter
+sensor:
+  - platform: growatt_solar
+    update_interval: 5s
+    protocol_version: RTU2 # RTU2
+
+    inverter_status:
+      name: "Growatt Status Code"
+
+    phase_a:
+      voltage:
+          name: "Growatt AC Voltage Phase"
+      current:
+          name: "Growatt AC Current Phase"
+      active_power:
+          name: "Growatt AC Power Phase"
+          
+    pv1:
+      voltage:
+          name: "Growatt PV Voltage"
+      current:
+          name: "Growatt PV Current"
+      active_power:
+          name: "Growatt PV Active Power"
+          
+    active_power:
+      name: "Growatt Grid Active Power"
+
+    pv_active_power:
+      name: "Growatt PV Active Power"
+
+    frequency:
+      name: "Growatt Frequency"
+
+    energy_production_day:
+      name: "Growatt Today's Generation"
+
+    total_energy_production:
+      name: "Growatt Total Energy Production"
+
+    inverter_module_temp:
+      name: "Growatt Inverter Module Temp"
