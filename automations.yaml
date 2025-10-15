@@ -1,167 +1,3 @@
-- id: '1697887163635'
-  alias: Solcast update
-  description: Update Solcast solar forecast
-  trigger:
-  - platform: time
-    at: '23:00:00'
-  - platform: time
-    at: '12:00:00'
-  - platform: time
-    at: 04:00:00
-  condition: []
-  action:
-  - service: solcast_solar.update_forecasts
-    data: {}
-  mode: single
-- id: '1701901738658'
-  alias: Solar - Battery Charge Automation
-  description: Main automatic battery charging function
-  trigger:
-  - platform: time
-    at: '23:05:00'
-  condition: []
-  action:
-  - service: input_number.set_value
-    data:
-      value: '{{ states(''sensor.solax_house_load_today'') }}'
-    target:
-      entity_id: input_number.expected_consumption
-  - delay:
-      hours: 0
-      minutes: 0
-      seconds: 10
-      milliseconds: 0
-  - parallel:
-    - service: number.set_value
-      data:
-        value: '{{ states(''sensor.soc_charge_end_time_hhmm'').split('':'')[0] }}'
-      target:
-        entity_id: number.solax_timed_charge_end_hours
-    - service: number.set_value
-      data:
-        value: '{{ states(''sensor.soc_charge_end_time_hhmm'').split('':'')[1] }}'
-      target:
-        entity_id: number.solax_timed_charge_end_minutes
-  - delay:
-      hours: 0
-      minutes: 0
-      seconds: 10
-      milliseconds: 0
-  - service: button.press
-    data: {}
-    target:
-      entity_id: button.solax_update_charge_discharge_times
-  mode: single
-- id: '1701901762534'
-  alias: Solar - Charge Current Settings
-  description: This Automation automatically sets the Solax Timed Charge Current to
-    match the user inputs of battery capacity, overdischarge soc and forcecharge soc
-  trigger:
-  - platform: state
-    entity_id:
-    - input_number.battery_capacity
-    - input_number.overdischarge_soc
-    - input_number.force_charge_soc
-    - input_number.offpeak_window
-  condition: []
-  action:
-  - service: number.set_value
-    data:
-      value: '{{ states(''sensor.calculated_charge_current'') }}'
-    target:
-      entity_id: number.solax_timed_charge_current
-  mode: single
-- id: '1701901781715'
-  alias: Solar - Expected Consumption Low State Tracker
-  description: If the number input number 'Expected Consumption' is overtaken by the
-    Solis sensor 'Solax House Load Today', the value from the sensor is set to the
-    number input to avoid peculiarities in battery SoC forecasting.
-  trigger:
-  - platform: state
-    entity_id:
-    - sensor.solax_house_load_today
-  condition:
-  - condition: numeric_state
-    entity_id: sensor.solax_house_load_today
-    above: input_number.expected_consumption
-  action:
-  - service: input_number.set_value
-    data:
-      value: '{{ states(''sensor.solax_house_load_today'') }}'
-    target:
-      entity_id: input_number.expected_consumption
-  mode: single
-- id: '1701901849760'
-  alias: Solar - Restore Consumption Defaults
-  description: Sets todays expected consumption and tomorrows expected consumption
-    to 10, Target SoC to 4.5, base load to 0.23, and boost charge to 0
-  trigger:
-  - platform: state
-    entity_id:
-    - input_button.reset_consumption_defaults
-  condition: []
-  action:
-  - service: input_number.set_value
-    data:
-      value: 10
-    target:
-      entity_id: input_number.expected_consumption
-  - service: input_number.set_value
-    data:
-      value: 10
-    target:
-      entity_id: input_number.expected_consumption_tomorrow
-  - service: input_number.set_value
-    data:
-      value: 4.5
-    target:
-      entity_id: input_number.target_usable_soc
-  - service: input_number.set_value
-    data:
-      value: 0.23
-    target:
-      entity_id:
-      - input_number.base_load
-  - service: input_number.set_value
-    data:
-      value: 0
-    target:
-      entity_id: input_number.boost_charge
-  - service: number.set_value
-    data:
-      value: '55'
-    target:
-      entity_id: number.solax_timed_charge_current
-  mode: single
-- id: '1701901864598'
-  alias: Solar - Update Times
-  description: Manually updates Inverter Charge and Discharge Times from Solax Modbus
-    Integration
-  trigger: []
-  condition: []
-  action:
-  - parallel:
-    - service: number.set_value
-      data:
-        value: '{{ states(''sensor.soc_charge_end_time_hhmm'').split('':'')[0] }}'
-      target:
-        entity_id: number.solax_timed_charge_end_hours
-    - service: number.set_value
-      data:
-        value: '{{ states(''sensor.soc_charge_end_time_hhmm'').split('':'')[1] }}'
-      target:
-        entity_id: number.solax_timed_charge_end_minutes
-  - delay:
-      hours: 0
-      minutes: 0
-      seconds: 5
-      milliseconds: 0
-  - service: button.press
-    data: {}
-    target:
-      entity_id:
-      - button.solax_update_charge_discharge_times
-  mode: single
 - id: '1701901878676'
   alias: Solcast - API Poll Schedule
   description: New API call Solcast
@@ -181,78 +17,6 @@
   - service: solcast_solar.update_forecasts
     data: {}
   mode: single
-- id: '1737918637703'
-  alias: Battery SOC Based V2L Control
-  description: Controls V2L switch based on battery SOC with different thresholds
-    for evening hours
-  triggers:
-  - entity_id: sensor.solax_battery_soc
-    id: soc_trigger
-    above: 20
-    below: 80
-    trigger: numeric_state
-  conditions: []
-  actions:
-  - choose:
-    - conditions:
-      - condition: template
-        value_template: '{{ evening_hours }}'
-      sequence:
-      - choose:
-        - conditions:
-          - condition: numeric_state
-            entity_id: sensor.solax_battery_soc
-            above: 19.9
-            below: 40
-          - condition: state
-            entity_id: switch.v2l
-            state: 'off'
-          sequence:
-          - target:
-              entity_id: switch.v2l
-            action: switch.turn_on
-        - conditions:
-          - condition: numeric_state
-            entity_id: sensor.solax_battery_soc
-            above: 39.9
-          - condition: state
-            entity_id: switch.v2l
-            state: 'on'
-          sequence:
-          - target:
-              entity_id: switch.v2l
-            action: switch.turn_off
-    - conditions:
-      - condition: template
-        value_template: '{{ not evening_hours }}'
-      sequence:
-      - choose:
-        - conditions:
-          - condition: numeric_state
-            entity_id: sensor.solax_battery_soc
-            above: 39.9
-            below: 80
-          - condition: state
-            entity_id: switch.v2l
-            state: 'off'
-          sequence:
-          - target:
-              entity_id: switch.v2l
-            action: switch.turn_on
-        - conditions:
-          - condition: numeric_state
-            entity_id: sensor.solax_battery_soc
-            above: 79.9
-          - condition: state
-            entity_id: switch.v2l
-            state: 'on'
-          sequence:
-          - target:
-              entity_id: switch.v2l
-            action: switch.turn_off
-  variables:
-    evening_hours: '{{ now().hour >= 20 }}'
-    current_soc: '{{ states(''sensor.solax_battery_soc'') | float }}'
 - id: '1760173080569'
   alias: Battery Status Indicator
   description: ''
@@ -317,3 +81,259 @@
         brightness_pct: 100
       action: light.turn_on
   mode: restart
+  
+  
+# ========================================
+# PHASE 1: SOLIS-ONLY AUTOMATIONS
+# Install these NOW while waiting for ESP hardware
+# ========================================
+
+# 1. START CHARGING
+- id: 'solis_charging_start_phase1'
+alias: "Solis Charging - Start (Phase 1)"
+description: "Starts Solis charging when cheap rate begins"
+triggers:
+  - platform: state
+    entity_id: binary_sensor.cheap_rate_active
+    to: 'on'
+conditions:
+  - condition: numeric_state
+    entity_id: sensor.solisac_battery_soc
+    below: 95
+actions:
+  # Set Solis mode to Self-Use
+  - service: select.select_option
+    target:
+      entity_id: select.solisac_energy_storage_control_switch
+    data:
+      option: "Self-Use"
+  
+  # Set bulk charging current
+  - service: number.set_value
+    target:
+      entity_id: number.solisac_timed_charge_current
+    data:
+      value: 62.5
+  
+  # Set charge time slot
+  - service: number.set_value
+    target:
+      entity_id: number.solisac_timed_charge_start_hours
+    data:
+      value: "{{ now().hour }}"
+  
+  - service: number.set_value
+    target:
+      entity_id: number.solisac_timed_charge_start_minutes
+    data:
+      value: "{{ now().minute }}"
+  
+  - service: number.set_value
+    target:
+      entity_id: number.solisac_timed_charge_end_hours
+    data:
+      value: 5
+  
+  - service: number.set_value
+    target:
+      entity_id: number.solisac_timed_charge_end_minutes
+    data:
+      value: 30
+  
+  # Press update button
+  - service: button.press
+    target:
+      entity_id: button.solisac_update_charge_discharge_times
+
+# 2. PHASE TRANSITIONS
+- id: 'solis_phase_transition_phase1'
+alias: "Solis Charging - Phase Transitions (Phase 1)"
+description: "Changes Solis current when crossing SOC thresholds"
+triggers:
+  # Entering absorption phase (90% SOC)
+  - platform: numeric_state
+    entity_id: sensor.solisac_battery_soc
+    above: 89.5
+    below: 90.5
+    id: enter_absorption
+  
+  # Entering top balance phase (95% SOC)
+  - platform: numeric_state
+    entity_id: sensor.solisac_battery_soc
+    above: 94.5
+    below: 95.5
+    id: enter_top_balance
+conditions:
+  - condition: state
+    entity_id: binary_sensor.cheap_rate_active
+    state: 'on'
+actions:
+  - choose:
+      # ABSORPTION PHASE (90-95%)
+      - conditions:
+          - condition: trigger
+            id: enter_absorption
+        sequence:
+          - service: number.set_value
+            target:
+              entity_id: number.solisac_timed_charge_current
+            data:
+              value: 31
+          
+          - service: button.press
+            target:
+              entity_id: button.solisac_update_charge_discharge_times
+      
+      # TOP BALANCE PHASE (95-100%)
+      - conditions:
+          - condition: trigger
+            id: enter_top_balance
+        sequence:
+          # Continue at reduced rate for top balance
+          - service: number.set_value
+            target:
+              entity_id: number.solisac_timed_charge_current
+            data:
+              value: 15
+          
+          - service: button.press
+            target:
+              entity_id: button.solisac_update_charge_discharge_times
+
+# 3. STOP CHARGING
+- id: 'solis_charging_stop_phase1'
+alias: "Solis Charging - Stop (Phase 1)"
+description: "Stops charging when cheap rate ends or battery full"
+triggers:
+  - platform: state
+    entity_id: binary_sensor.cheap_rate_active
+    to: 'off'
+    id: slot_ended
+  
+  - platform: numeric_state
+    entity_id: sensor.solisac_battery_soc
+    above: 99.5
+    id: battery_full
+  
+  - platform: time
+    at: "05:15:00"
+    id: rest_period
+actions:
+  # Disable timed charging (set to 00:00-00:00)
+  - service: number.set_value
+    target:
+      entity_id: number.solisac_timed_charge_start_hours
+    data:
+      value: 0
+  
+  - service: number.set_value
+    target:
+      entity_id: number.solisac_timed_charge_start_minutes
+    data:
+      value: 0
+  
+  - service: number.set_value
+    target:
+      entity_id: number.solisac_timed_charge_end_hours
+    data:
+      value: 0
+  
+  - service: number.set_value
+    target:
+      entity_id: number.solisac_timed_charge_end_minutes
+    data:
+      value: 0
+  
+  - service: button.press
+    target:
+      entity_id: button.solisac_update_charge_discharge_times
+
+# 4. LOW BATTERY ALERT
+- id: 'battery_low_alert_phase1'
+alias: "Battery - Low SOC Alert (Phase 1)"
+description: "Notifies when battery reaches 40%"
+triggers:
+  - platform: numeric_state
+    entity_id: sensor.solisac_battery_soc
+    below: 40
+conditions:
+  - condition: state
+    entity_id: binary_sensor.cheap_rate_active
+    state: 'off'
+actions:
+  - service: notify.mobile_app_iphone_14
+    data:
+      title: "🔋 Battery Low"
+      message: "Home battery is at {{ states('sensor.solisac_battery_soc') }}%. Next cheap rate at 23:30."
+      data:
+        push:
+          sound: default
+          interruption-level: time-sensitive
+
+# 5. INTELLIGENT DISPATCHING
+- id: 'intelligent_dispatching_phase1'
+alias: "Solis Charging - Intelligent Dispatching (Phase 1)"
+description: "Updates charge times for Octopus Intelligent slots"
+triggers:
+  - platform: state
+    entity_id: binary_sensor.octopus_energy_a_cadd52b1_intelligent_dispatching
+    to: 'on'
+conditions:
+  - condition: numeric_state
+    entity_id: sensor.solisac_battery_soc
+    below: 95
+actions:
+  # Set current time as start
+  - service: number.set_value
+    target:
+      entity_id: number.solisac_timed_charge_start_hours
+    data:
+      value: "{{ now().hour }}"
+  
+  - service: number.set_value
+    target:
+      entity_id: number.solisac_timed_charge_start_minutes
+    data:
+      value: "{{ now().minute }}"
+  
+  # Intelligent slots typically 1-2 hours
+  - service: number.set_value
+    target:
+      entity_id: number.solisac_timed_charge_end_hours
+    data:
+      value: "{{ (now().hour + 2) % 24 }}"
+  
+  - service: number.set_value
+    target:
+      entity_id: number.solisac_timed_charge_end_minutes
+    data:
+      value: "{{ now().minute }}"
+  
+  - service: button.press
+    target:
+      entity_id: button.solisac_update_charge_discharge_times
+
+# 6. GRID OVERLOAD PROTECTION
+- id: 'grid_overload_protection_phase1'
+alias: "Grid - Overload Protection (Phase 1)"
+description: "Alerts if grid import exceeds safe limits"
+triggers:
+  - platform: numeric_state
+    entity_id: sensor.myenergi_69_stirtingale_road_eddi_power_grid
+    above: 18000
+    for:
+      seconds: 10
+conditions:
+  - condition: state
+    entity_id: binary_sensor.cheap_rate_active
+    state: 'on'
+actions:
+  # Send warning (can't reduce Solis dynamically in Phase 1)
+  - service: notify.mobile_app_iphone_14
+    data:
+      title: "⚠️ Grid Overload Warning"
+      message: "Grid import at {{ states('sensor.myenergi_69_stirtingale_road_eddi_power_grid') }}W. Check loads!"
+      data:
+        push:
+          sound: default
+              interruption-level: critical
