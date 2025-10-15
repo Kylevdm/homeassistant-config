@@ -269,4 +269,33 @@ template:
           {% set battery = states('sensor.myenergi_harvi_13913276_ac_battery_ct2') | float(0) %}
           {% set grid = states('sensor.myenergi_harvi_2639268_grid_ct1') | float(0) %}
           {{ (solar + battery + grid) | round(0) }}
+  - sensor:
+      - platform: statistics
+        name: "House Load 7 Day Average"
+        entity_id: sensor.house_load_daily
+        state_characteristic: mean
+        max_age:
+          days: 7
+          
+  - sensor:
+      - name: "Battery Power"
+        unit_of_measurement: "W"
+        state: >
+          {{ (states('sensor.solisac_battery_voltage') | float) * 
+             (states('sensor.solisac_bms_battery_current') | float) }}
+             
+  - sensor:
+      - name: "Battery Power"
+        unit_of_measurement: "W"
+        state: >
+          {{ (states('sensor.solisac_battery_voltage') | float) * 
+             (states('sensor.solisac_bms_battery_current') | float) }}
+
+binary_sensor:
+  - platform: template
+    sensors:
+      v2l_available:
+        friendly_name: "V2L Car Connected"
+        value_template: >
+          {{ not is_state('switch.v2l', 'unavailable') }}
           
