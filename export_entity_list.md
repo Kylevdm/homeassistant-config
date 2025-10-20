@@ -1,36 +1,14 @@
-Total Entities: 878
+Total Entities: 953
 
 assist_satellite.home_assistant_voice_093b7c_assist_satellite
 
-automation.battery_25
+automation.battery_status_indicator
 
-automation.battery_40
+automation.hybrid_charging_bulk_phase_solis_on
 
-automation.battery_60
-
-automation.battery_80
-
-automation.battery_switch_control_based_on_soc
-
-automation.solar_battery_charge_automation
-
-automation.solar_charge_current_settings
-
-automation.solar_expected_consumption_low_state_tracker
-
-automation.solar_restore_consumption_defaults_2
-
-automation.solar_update_times
+automation.hybrid_charging_daily_reset_solis_on
 
 automation.solcast_api_poll_schedule
-
-automation.solcast_update
-
-automation.stairs_on_with_motion_at_night
-
-automation.v2l_off
-
-automation.v2l_on
 
 binary_sensor.0x5c0272fffebe2fb6_battery_low
 
@@ -74,6 +52,10 @@ binary_sensor.altherma_gateway_is_firmware_update_supported
 
 binary_sensor.backups_stale
 
+binary_sensor.car_fast_charging
+
+binary_sensor.cheap_rate_active
+
 binary_sensor.driveway_animal_2
 
 binary_sensor.driveway_motion_2
@@ -93,6 +75,54 @@ binary_sensor.dvla_hf68_vdm_markedforexport
 binary_sensor.dvla_hf68_vdm_motstatus
 
 binary_sensor.dvla_hf68_vdm_taxstatus
+
+binary_sensor.ioniq_5_air_conditioner
+
+binary_sensor.ioniq_5_back_left_door
+
+binary_sensor.ioniq_5_back_right_door
+
+binary_sensor.ioniq_5_back_window_heater
+
+binary_sensor.ioniq_5_brake_fluid_warning
+
+binary_sensor.ioniq_5_defrost
+
+binary_sensor.ioniq_5_engine
+
+binary_sensor.ioniq_5_ev_battery_charge
+
+binary_sensor.ioniq_5_ev_battery_plug
+
+binary_sensor.ioniq_5_ev_charge_port
+
+binary_sensor.ioniq_5_ev_first_scheduled_departure
+
+binary_sensor.ioniq_5_ev_second_scheduled_departure
+
+binary_sensor.ioniq_5_front_left_door
+
+binary_sensor.ioniq_5_front_right_door
+
+binary_sensor.ioniq_5_hood
+
+binary_sensor.ioniq_5_smart_key_battery_warning
+
+binary_sensor.ioniq_5_steering_wheel_heater
+
+binary_sensor.ioniq_5_tire_pressure_all
+
+binary_sensor.ioniq_5_tire_pressure_front_left
+
+binary_sensor.ioniq_5_tire_pressure_front_right
+
+binary_sensor.ioniq_5_tire_pressure_rear_left
+
+binary_sensor.ioniq_5_tire_pressure_rear_right
+
+binary_sensor.ioniq_5_trunk
+
+binary_sensor.ioniq_5_washer_fluid_warning
 
 binary_sensor.ipad_kvdxqxd9nw_focus
 
@@ -117,6 +147,8 @@ binary_sensor.myenergi_zappi_22300254_lock_when_unplugged
 binary_sensor.myenergi_zappi_22300254_locked
 
 binary_sensor.myenergi_zappi_22300254_update_available
+
+binary_sensor.octopus_energy_00000000_0009_4000_8020_000000021708_intelligent_dispatching
 
 binary_sensor.octopus_energy_a_cadd52b1_intelligent_dispatching
 
@@ -148,6 +180,10 @@ binary_sensor.reolink_video_doorbell_poe_visitor
 
 binary_sensor.stairs_motion
 
+binary_sensor.v2l_available
+
+binary_sensor.v2l_car_connected
+
 binary_sensor.window_study_contact
 
 binary_sensor.zigbee2mqtt_bridge_connection_state
@@ -172,6 +208,8 @@ calendar.dvla_ca23_udx
 
 calendar.dvla_hf68_vdm
 
+calendar.octopus_energy_a_cadd52b1_octoplus_saving_sessions
+
 camera.driveway_fluent_2
 
 camera.reolink_video_doorbell_poe_fluent
@@ -183,6 +221,8 @@ climate.altherma_leaving_water_offset
 climate.altherma_room_temperature
 
 conversation.home_assistant
+
+device_tracker.ioniq_5_location
 
 device_tracker.ipad_kvdxqxd9nw
 
@@ -215,8 +255,6 @@ input_number.boost_charge
 input_number.expected_consumption
 
 input_number.expected_consumption_tomorrow
-
-input_number.force_charge_soc
 
 input_number.offpeak_window
 
@@ -256,6 +294,8 @@ light.stairs_1
 
 light.stairs_2
 
+lock.ioniq_5_door_lock
+
 media_player.home_assistant_voice_093b7c_media_player
 
 media_player.kitchen
@@ -282,6 +322,10 @@ number.driveway_motion_sensitivity_2
 
 number.driveway_volume_2
 
+number.ioniq_5_ac_charging_limit
+
+number.ioniq_5_dc_charging_limit
+
 number.kitchen_balance
 
 number.kitchen_bass
@@ -295,6 +339,8 @@ number.myenergi_eddi_24184515_heater_priority
 number.myenergi_zappi_22300254_device_priority
 
 number.myenergi_zappi_22300254_minimum_green_level
+
+number.octopus_energy_00000000_0009_4000_8020_000000021708_intelligent_charge_target
 
 number.octopus_energy_a_cadd52b1_intelligent_charge_limit
 
@@ -496,6 +542,8 @@ select.myenergi_zappi_22300254_charge_mode
 
 select.myenergi_zappi_22300254_phase_setting
 
+select.octopus_energy_00000000_0009_4000_8020_000000021708_intelligent_target_time
+
 select.octopus_energy_a_cadd52b1_intelligent_target_time
 
 select.octopus_target_ready_by_time
@@ -690,6 +738,8 @@ sensor.altherma_userinterface_software_version
 
 sensor.auto_charge_scheduled
 
+sensor.available_battery_charge_capacity
+
 sensor.average_upstairs_temperature
 
 sensor.backup_backup_manager_state
@@ -702,13 +752,17 @@ sensor.backup_next_scheduled_automatic_backup
 
 sensor.backup_state
 
+sensor.battery_charge_needed
+
+sensor.battery_charge_phase
+
 sensor.battery_charge_power
 
 sensor.battery_charge_today
 
-sensor.calculated_charge_current
+sensor.battery_power
 
-sensor.calculated_house_load_now
+sensor.calculated_charge_current
 
 sensor.calculated_house_load_today
 
@@ -717,6 +771,8 @@ sensor.carbon_intensity_uk
 sensor.charge_end_time_set
 
 sensor.charge_start_time
+
+sensor.cheap_slot_time_remaining
 
 sensor.co2_signal_co2_intensity
 
@@ -819,6 +875,56 @@ sensor.house_load
 sensor.house_load_daily
 
 sensor.house_load_energy
+
+sensor.ioniq_5_average_energy_consumption
+
+sensor.ioniq_5_car_battery_level
+
+sensor.ioniq_5_daily_driving_stats
+
+sensor.ioniq_5_data
+
+sensor.ioniq_5_estimated_charge_duration
+
+sensor.ioniq_5_estimated_fast_charge_duration
+
+sensor.ioniq_5_estimated_portable_charge_duration
+
+sensor.ioniq_5_estimated_station_charge_duration
+
+sensor.ioniq_5_ev_battery_level
+
+sensor.ioniq_5_ev_charging_power
+
+sensor.ioniq_5_ev_first_scheduled_departure_time
+
+sensor.ioniq_5_ev_off_peak_end_time
+
+sensor.ioniq_5_ev_off_peak_start_time
+
+sensor.ioniq_5_ev_range
+
+sensor.ioniq_5_ev_second_scheduled_departure_time
+
+sensor.ioniq_5_last_updated_at
+
+sensor.ioniq_5_odometer
+
+sensor.ioniq_5_set_temperature
+
+sensor.ioniq_5_target_range_of_charge_ac
+
+sensor.ioniq_5_target_range_of_charge_dc
+
+sensor.ioniq_5_todays_daily_driving_stats
+
+sensor.ioniq_5_total_driving_range
+
+sensor.ioniq_5_total_energy_consumption
+
+sensor.ioniq_5_total_energy_regeneration
+
+sensor.ioniq_5_vehicle_identification_number
 
 sensor.ipad_kvdxqxd9nw_app_version
 
@@ -1100,6 +1206,8 @@ sensor.myenergi_zappi_22300254_status
 
 sensor.none_althermasensors
 
+sensor.octopus_energy_00000000_0009_4000_8020_000000021708_intelligent_state
+
 sensor.octopus_energy_a_cadd52b1_intelligent_state
 
 sensor.octopus_energy_a_cadd52b1_octoplus_points
@@ -1110,11 +1218,21 @@ sensor.octopus_energy_a_cadd52b1_wheel_of_fortune_spins_gas
 
 sensor.octopus_energy_electricity_22l4386358_2200012282082_current_accumulative_consumption
 
+sensor.octopus_energy_electricity_22l4386358_2200012282082_current_accumulative_consumption_off_peak
+
+sensor.octopus_energy_electricity_22l4386358_2200012282082_current_accumulative_consumption_peak
+
 sensor.octopus_energy_electricity_22l4386358_2200012282082_current_accumulative_cost
+
+sensor.octopus_energy_electricity_22l4386358_2200012282082_current_accumulative_cost_off_peak
+
+sensor.octopus_energy_electricity_22l4386358_2200012282082_current_accumulative_cost_peak
 
 sensor.octopus_energy_electricity_22l4386358_2200012282082_current_consumption
 
 sensor.octopus_energy_electricity_22l4386358_2200012282082_current_demand
+
+sensor.octopus_energy_electricity_22l4386358_2200012282082_current_interval_accumulative_consumption
 
 sensor.octopus_energy_electricity_22l4386358_2200012282082_current_rate
 
@@ -1122,11 +1240,27 @@ sensor.octopus_energy_electricity_22l4386358_2200012282082_current_standing_char
 
 sensor.octopus_energy_electricity_22l4386358_2200012282082_current_total_consumption
 
+sensor.octopus_energy_electricity_22l4386358_2200012282082_current_total_export
+
 sensor.octopus_energy_electricity_22l4386358_2200012282082_next_rate
+
+sensor.octopus_energy_electricity_22l4386358_2200012282082_octoplus_free_electricity_session_baseline
+
+sensor.octopus_energy_electricity_22l4386358_2200012282082_octoplus_saving_session_baseline
 
 sensor.octopus_energy_electricity_22l4386358_2200012282082_previous_accumulative_consumption
 
+sensor.octopus_energy_electricity_22l4386358_2200012282082_previous_accumulative_consumption_off_peak
+
+sensor.octopus_energy_electricity_22l4386358_2200012282082_previous_accumulative_consumption_peak
+
 sensor.octopus_energy_electricity_22l4386358_2200012282082_previous_accumulative_cost
+
+sensor.octopus_energy_electricity_22l4386358_2200012282082_previous_accumulative_cost_off_peak
+
+sensor.octopus_energy_electricity_22l4386358_2200012282082_previous_accumulative_cost_override
+
+sensor.octopus_energy_electricity_22l4386358_2200012282082_previous_accumulative_cost_peak
 
 sensor.octopus_energy_electricity_22l4386358_2200012282082_previous_rate
 
@@ -1458,10 +1592,6 @@ sensor.solisac_total_battery_charge
 
 sensor.solisac_total_battery_discharge
 
-sensor.string_1_output
-
-sensor.string_2_output
-
 sensor.sun_next_dawn
 
 sensor.sun_next_dusk
@@ -1474,6 +1604,8 @@ sensor.sun_next_rising
 
 sensor.sun_next_setting
 
+sensor.target_solis_charge_current
+
 sensor.th_01_battery
 
 sensor.th_01_humidity
@@ -1484,19 +1616,33 @@ sensor.total_daily_power_cost
 
 sensor.total_daily_power_grid_cost
 
+sensor.total_grid_load
+
 sensor.tumble_dryer_energy
 
 sensor.tumble_dryer_power
 
 sensor.upstairs_temperature
 
+sensor.v2l_current
+
 sensor.v2l_daily
 
 sensor.v2l_energy
 
+sensor.v2l_indicator_mode
+
+sensor.v2l_linkquality
+
 sensor.v2l_power
 
+sensor.v2l_power_outage_memory
+
 sensor.v2l_temperature
+
+sensor.v2l_update_state
+
+sensor.v2l_voltage
 
 sensor.window_study_battery
 
@@ -1549,6 +1695,10 @@ switch.kitchen_crossfade
 switch.kitchen_loudness
 
 switch.octopus_bump_charge
+
+switch.octopus_energy_00000000_0009_4000_8020_000000021708_intelligent_bump_charge
+
+switch.octopus_energy_00000000_0009_4000_8020_000000021708_intelligent_smart_charge
 
 switch.octopus_energy_a_cadd52b1_intelligent_bump_charge
 
