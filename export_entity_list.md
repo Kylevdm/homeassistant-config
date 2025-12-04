@@ -1,14 +1,20 @@
-Total Entities: 953
+Total Entities: 999
 
 assist_satellite.home_assistant_voice_093b7c_assist_satellite
 
 automation.battery_status_indicator
+
+automation.dehumidifier_off
+
+automation.dehumidifier_on
 
 automation.hybrid_charging_bulk_phase_solis_on
 
 automation.hybrid_charging_daily_reset_solis_on
 
 automation.solcast_api_poll_schedule
+
+automation.toothbrush_battery_low
 
 binary_sensor.0x5c0272fffebe2fb6_battery_low
 
@@ -148,23 +154,13 @@ binary_sensor.myenergi_zappi_22300254_locked
 
 binary_sensor.myenergi_zappi_22300254_update_available
 
-binary_sensor.octopus_energy_00000000_0009_4000_8020_000000021708_intelligent_dispatching
+binary_sensor.octopus_energy_00000000_0009_4000_8020_000000068b29_intelligent_dispatching
 
-binary_sensor.octopus_energy_a_cadd52b1_intelligent_dispatching
+binary_sensor.octopus_energy_a_cadd52b1_greenness_forecast_highlighted
 
 binary_sensor.octopus_energy_a_cadd52b1_octoplus_saving_sessions
 
 binary_sensor.octopus_energy_electricity_22l4386358_2200012282082_off_peak
-
-binary_sensor.octopus_intelligent_planned_dispatch_slot
-
-binary_sensor.octopus_intelligent_slot
-
-binary_sensor.octopus_intelligent_slot_next_1_hour
-
-binary_sensor.octopus_intelligent_slot_next_2_hours
-
-binary_sensor.octopus_intelligent_slot_next_3_hours
 
 binary_sensor.remote_ui
 
@@ -178,6 +174,10 @@ binary_sensor.reolink_video_doorbell_poe_vehicle
 
 binary_sensor.reolink_video_doorbell_poe_visitor
 
+binary_sensor.sp18b2311040070_charging
+
+binary_sensor.sp18b2311040070_problem
+
 binary_sensor.stairs_motion
 
 binary_sensor.v2l_available
@@ -189,6 +189,14 @@ binary_sensor.window_study_contact
 binary_sensor.zigbee2mqtt_bridge_connection_state
 
 button.altherma_refresh
+
+button.esphome_emerson_charger_restart_esp
+
+button.esphome_emerson_charger_set_offline_values
+
+button.esphome_emerson_restart_esp
+
+button.esphome_emerson_set_offline_values
 
 button.solisac_sync_rtc
 
@@ -207,6 +215,10 @@ button.zigbee2mqtt_bridge_restart
 calendar.dvla_ca23_udx
 
 calendar.dvla_hf68_vdm
+
+calendar.llm_vision_timeline
+
+calendar.octopus_energy_a_cadd52b1_greener_nights
 
 calendar.octopus_energy_a_cadd52b1_octoplus_saving_sessions
 
@@ -312,6 +324,8 @@ number.0x5c0272fffebe2fb6_local_temperature_calibration
 
 number.0x5c0272fffebe2fb6_open_window_temperature
 
+number.dehumidifier_countdown
+
 number.driveway_ai_animal_sensitivity_2
 
 number.driveway_ai_person_sensitivity_2
@@ -321,6 +335,18 @@ number.driveway_ai_vehicle_sensitivity_2
 number.driveway_motion_sensitivity_2
 
 number.driveway_volume_2
+
+number.esphome_emerson_charger_max_input_current
+
+number.esphome_emerson_charger_set_max_current
+
+number.esphome_emerson_charger_set_output_voltage
+
+number.esphome_emerson_max_input_current
+
+number.esphome_emerson_set_max_current
+
+number.esphome_emerson_set_output_voltage
 
 number.ioniq_5_ac_charging_limit
 
@@ -340,11 +366,7 @@ number.myenergi_zappi_22300254_device_priority
 
 number.myenergi_zappi_22300254_minimum_green_level
 
-number.octopus_energy_00000000_0009_4000_8020_000000021708_intelligent_charge_target
-
-number.octopus_energy_a_cadd52b1_intelligent_charge_limit
-
-number.octopus_energy_a_cadd52b1_intelligent_charge_target
+number.octopus_energy_00000000_0009_4000_8020_000000068b29_intelligent_charge_target
 
 number.reolink_video_doorbell_poe_ai_person_sensitivity
 
@@ -371,6 +393,10 @@ number.solisac_battery_discharge_current
 number.solisac_battery_minimum_soc
 
 number.solisac_force_charge_soc
+
+number.solisac_inverter_battery_control_override_charge_power
+
+number.solisac_inverter_battery_control_override_discharge_power
 
 number.solisac_special_settings
 
@@ -522,6 +548,12 @@ select.altherma_domestichotwatertank_schedule
 
 select.bedside_lamp_color_power_on_behavior
 
+select.bedside_lamp_power_on_behavior
+
+select.dehumidifier_indicator_mode
+
+select.dehumidifier_power_outage_memory
+
 select.dining_color_power_on_behavior
 
 select.driveway_day_night_mode_2
@@ -536,19 +568,15 @@ select.home_assistant_voice_093b7c_wake_word
 
 select.home_assistant_voice_093b7c_wake_word_2
 
+select.home_assistant_voice_093b7c_wake_word_sensitivity
+
 select.myenergi_eddi_24184515_operating_mode
 
 select.myenergi_zappi_22300254_charge_mode
 
 select.myenergi_zappi_22300254_phase_setting
 
-select.octopus_energy_00000000_0009_4000_8020_000000021708_intelligent_target_time
-
-select.octopus_energy_a_cadd52b1_intelligent_target_time
-
-select.octopus_target_ready_by_time
-
-select.octopus_target_state_of_charge
+select.octopus_energy_00000000_0009_4000_8020_000000068b29_intelligent_target_time
 
 select.reolink_video_doorbell_poe_auto_quick_reply_message
 
@@ -581,10 +609,6 @@ select.th_05_temperature_display_mode
 select.th_06_temperature_display_mode
 
 select.trv_room2_working_day
-
-select.tumble_dryer_indicator_mode
-
-select.tumble_dryer_power_outage_memory
 
 select.v2l_indicator_mode
 
@@ -778,6 +802,16 @@ sensor.co2_signal_co2_intensity
 
 sensor.co2_signal_grid_fossil_fuel_percentage
 
+sensor.dehumidifier_current
+
+sensor.dehumidifier_energy
+
+sensor.dehumidifier_linkquality
+
+sensor.dehumidifier_power
+
+sensor.dehumidifier_voltage
+
 sensor.downstairs_temperature
 
 sensor.driveway_day_night_state
@@ -846,6 +880,26 @@ sensor.dvla_hf68_vdm_wheelplan
 
 sensor.dvla_hf68_vdm_yearofmanufacture
 
+sensor.esphome_emerson_ac_voltage
+
+sensor.esphome_emerson_charger_ac_voltage
+
+sensor.esphome_emerson_charger_dc_max_current
+
+sensor.esphome_emerson_charger_output_current
+
+sensor.esphome_emerson_charger_output_voltage
+
+sensor.esphome_emerson_charger_temperature
+
+sensor.esphome_emerson_dc_max_current
+
+sensor.esphome_emerson_output_current
+
+sensor.esphome_emerson_output_voltage
+
+sensor.esphome_emerson_temperature
+
 sensor.growatt_ac_current_phase
 
 sensor.growatt_ac_power_phase
@@ -875,6 +929,22 @@ sensor.house_load
 sensor.house_load_daily
 
 sensor.house_load_energy
+
+sensor.io_series_6_7_9e9d
+
+sensor.io_series_6_7_9e9d_battery
+
+sensor.io_series_6_7_9e9d_brushing_mode
+
+sensor.io_series_6_7_9e9d_duration
+
+sensor.io_series_6_7_9e9d_number_of_sectors
+
+sensor.io_series_6_7_9e9d_pressure
+
+sensor.io_series_6_7_9e9d_sector
+
+sensor.io_series_6_7_9e9d_sector_timer
 
 sensor.ioniq_5_average_energy_consumption
 
@@ -1088,37 +1158,39 @@ sensor.iphone_steps
 
 sensor.iphone_storage
 
-sensor.myenergi_69_stirtingale_road_eddi_frequency_grid
-
-sensor.myenergi_69_stirtingale_road_eddi_generated_today
-
-sensor.myenergi_69_stirtingale_road_eddi_green_energy_today
-
-sensor.myenergi_69_stirtingale_road_eddi_grid_export_today
-
-sensor.myenergi_69_stirtingale_road_eddi_grid_import_today
-
 sensor.myenergi_69_stirtingale_road_eddi_grid_import_today_cost
 
-sensor.myenergi_69_stirtingale_road_eddi_home_consumption
+sensor.myenergi_bath_zappi_master_frequency_grid
 
-sensor.myenergi_69_stirtingale_road_eddi_hub_firmware
+sensor.myenergi_bath_zappi_master_generated_today
 
-sensor.myenergi_69_stirtingale_road_eddi_hub_serial_number
+sensor.myenergi_bath_zappi_master_green_energy_today
 
-sensor.myenergi_69_stirtingale_road_eddi_power_battery
+sensor.myenergi_bath_zappi_master_grid_export_today
 
-sensor.myenergi_69_stirtingale_road_eddi_power_charging
+sensor.myenergi_bath_zappi_master_grid_import_today
 
-sensor.myenergi_69_stirtingale_road_eddi_power_export
+sensor.myenergi_bath_zappi_master_grid_import_today_cost
 
-sensor.myenergi_69_stirtingale_road_eddi_power_generation
+sensor.myenergi_bath_zappi_master_home_consumption
 
-sensor.myenergi_69_stirtingale_road_eddi_power_grid
+sensor.myenergi_bath_zappi_master_hub_firmware
 
-sensor.myenergi_69_stirtingale_road_eddi_power_import
+sensor.myenergi_bath_zappi_master_hub_serial_number
 
-sensor.myenergi_69_stirtingale_road_eddi_voltage_grid
+sensor.myenergi_bath_zappi_master_power_battery
+
+sensor.myenergi_bath_zappi_master_power_charging
+
+sensor.myenergi_bath_zappi_master_power_export
+
+sensor.myenergi_bath_zappi_master_power_generation
+
+sensor.myenergi_bath_zappi_master_power_grid
+
+sensor.myenergi_bath_zappi_master_power_import
+
+sensor.myenergi_bath_zappi_master_voltage_grid
 
 sensor.myenergi_eddi_24184515_active_heater
 
@@ -1206,9 +1278,11 @@ sensor.myenergi_zappi_22300254_status
 
 sensor.none_althermasensors
 
-sensor.octopus_energy_00000000_0009_4000_8020_000000021708_intelligent_state
+sensor.octopus_energy_00000000_0009_4000_8020_000000068b29_intelligent_state
 
-sensor.octopus_energy_a_cadd52b1_intelligent_state
+sensor.octopus_energy_a_cadd52b1_greenness_forecast_current_index
+
+sensor.octopus_energy_a_cadd52b1_greenness_forecast_next_index
 
 sensor.octopus_energy_a_cadd52b1_octoplus_points
 
@@ -1258,13 +1332,9 @@ sensor.octopus_energy_electricity_22l4386358_2200012282082_previous_accumulative
 
 sensor.octopus_energy_electricity_22l4386358_2200012282082_previous_accumulative_cost_off_peak
 
-sensor.octopus_energy_electricity_22l4386358_2200012282082_previous_accumulative_cost_override
-
 sensor.octopus_energy_electricity_22l4386358_2200012282082_previous_accumulative_cost_peak
 
 sensor.octopus_energy_electricity_22l4386358_2200012282082_previous_rate
-
-sensor.octopus_energy_gas_e6s10451162061_4224234610_current_accumulative_consumption
 
 sensor.octopus_energy_gas_e6s10451162061_4224234610_current_accumulative_consumption_kwh
 
@@ -1284,8 +1354,6 @@ sensor.octopus_energy_gas_e6s10451162061_4224234610_current_total_consumption_m3
 
 sensor.octopus_energy_gas_e6s10451162061_4224234610_next_rate
 
-sensor.octopus_energy_gas_e6s10451162061_4224234610_previous_accumulative_consumption
-
 sensor.octopus_energy_gas_e6s10451162061_4224234610_previous_accumulative_consumption_kwh
 
 sensor.octopus_energy_gas_e6s10451162061_4224234610_previous_accumulative_consumption_m3
@@ -1293,10 +1361,6 @@ sensor.octopus_energy_gas_e6s10451162061_4224234610_previous_accumulative_consum
 sensor.octopus_energy_gas_e6s10451162061_4224234610_previous_accumulative_cost
 
 sensor.octopus_energy_gas_e6s10451162061_4224234610_previous_rate
-
-sensor.octopus_intelligent_next_offpeak_start
-
-sensor.octopus_intelligent_offpeak_end
 
 sensor.offpeak_ratio
 
@@ -1592,6 +1656,28 @@ sensor.solisac_total_battery_charge
 
 sensor.solisac_total_battery_discharge
 
+sensor.sp18b2311040070_battery
+
+sensor.sp18b2311040070_current
+
+sensor.sp18b2311040070_cycles
+
+sensor.sp18b2311040070_delta_cell_voltage
+
+sensor.sp18b2311040070_maximal_cell_voltage
+
+sensor.sp18b2311040070_minimal_cell_voltage
+
+sensor.sp18b2311040070_power
+
+sensor.sp18b2311040070_runtime
+
+sensor.sp18b2311040070_stored_energy
+
+sensor.sp18b2311040070_temperature
+
+sensor.sp18b2311040070_voltage
+
 sensor.sun_next_dawn
 
 sensor.sun_next_dusk
@@ -1617,10 +1703,6 @@ sensor.total_daily_power_cost
 sensor.total_daily_power_grid_cost
 
 sensor.total_grid_load
-
-sensor.tumble_dryer_energy
-
-sensor.tumble_dryer_power
 
 sensor.upstairs_temperature
 
@@ -1672,6 +1754,10 @@ switch.altherma
 
 switch.bedside_lamp_do_not_disturb
 
+switch.dehumidifier
+
+switch.dehumidifier_child_lock
+
 switch.dining_do_not_disturb
 
 switch.driveway_email_on_event_2
@@ -1686,6 +1772,22 @@ switch.driveway_record_2
 
 switch.driveway_record_audio_2
 
+switch.esphome_emerson_ac_switch_turn_off
+
+switch.esphome_emerson_charger_ac_switch_turn_off
+
+switch.esphome_emerson_charger_dc_switch_turn_off
+
+switch.esphome_emerson_charger_fan_switch_max
+
+switch.esphome_emerson_charger_led_switch
+
+switch.esphome_emerson_dc_switch_turn_off
+
+switch.esphome_emerson_fan_switch_max
+
+switch.esphome_emerson_led_switch
+
 switch.home_assistant_voice_093b7c_mute
 
 switch.home_assistant_voice_093b7c_wake_sound
@@ -1694,17 +1796,9 @@ switch.kitchen_crossfade
 
 switch.kitchen_loudness
 
-switch.octopus_bump_charge
+switch.octopus_energy_00000000_0009_4000_8020_000000068b29_intelligent_bump_charge
 
-switch.octopus_energy_00000000_0009_4000_8020_000000021708_intelligent_bump_charge
-
-switch.octopus_energy_00000000_0009_4000_8020_000000021708_intelligent_smart_charge
-
-switch.octopus_energy_a_cadd52b1_intelligent_bump_charge
-
-switch.octopus_energy_a_cadd52b1_intelligent_smart_charge
-
-switch.octopus_smart_charging
+switch.octopus_energy_00000000_0009_4000_8020_000000068b29_intelligent_smart_charge
 
 switch.reolink_video_doorbell_poe_doorbell_button_sound
 
@@ -1760,10 +1854,6 @@ switch.th_06_show_smiley
 
 switch.trv_room2_child_lock
 
-switch.tumble_dryer
-
-switch.tumble_dryer_child_lock
-
 switch.v2l
 
 switch.v2l_over_current_breaker
@@ -1782,9 +1872,7 @@ tag.lights_off
 
 text.trv_room2_holiday_start_stop
 
-time.octopus_energy_a_cadd52b1_intelligent_ready_time
-
-time.octopus_energy_a_cadd52b1_intelligent_target_time
+time.octopus_energy_00000000_0009_4000_8020_000000068b29_intelligent_target_time
 
 tts.home_assistant_cloud
 
@@ -1806,11 +1894,17 @@ update.average_sensor_update
 
 update.bar
 
+update.batmon_update
+
 update.battery_consumption_update
+
+update.ble_battery_management_system_bms_update
 
 update.carbon_intensity_uk_update
 
 update.daikin_onecta_update
+
+update.dehumidifier
 
 update.driveway_firmware_2
 
@@ -1868,7 +1962,7 @@ update.octopus_intelligent_update
 
 update.power_distribution_card_update
 
-update.predbat_update
+update.power_flow_card_plus_update
 
 update.reolink_video_doorbell_poe_firmware
 
@@ -1891,8 +1985,6 @@ update.tailscale_update
 update.toogoodtogo_update
 
 update.trv_room2
-
-update.tumble_dryer
 
 update.v2l
 
