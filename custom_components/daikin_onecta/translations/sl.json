@@ -18,8 +18,7 @@
     "abort": {
       "already_configured": "Integracija je že konfigurirana.",
       "cannot_connect": "Povezava s storitvijo Daikin Cloud ni uspela.",
-      "init_failed": "Inicializacija Daikin API ni uspela.",
-      "token_retrieval_failed": "Pridobivanje nabora žetonov za dostop ni uspelo."
+      "init_failed": "Inicializacija Daikin API ni uspela."
     },
     "error": {
       "cannot_connect": "Povezava ni uspela",
@@ -42,12 +41,12 @@
   },
   "entity": {
     "binary_sensor": {
-      "climatecontrol_isinwarningstate": {
+      "isinwarningstate": {
         "name": "Stanje opozorila klimatskega nadzora"
       }
     },
     "climate": {
-      "daikin_onecta": {
+      "roomtemperature": {
         "state_attributes": {
           "fan_mode": {
             "state": {

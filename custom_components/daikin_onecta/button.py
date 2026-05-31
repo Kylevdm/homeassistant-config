@@ -1,6 +1,4 @@
 """Component to interface with binary sensors."""
-from __future__ import annotations
-
 import logging
 
 from homeassistant.components.button import ButtonEntity
@@ -8,12 +6,11 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import callback
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import EntityCategory
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import COORDINATOR
-from .const import DAIKIN_DEVICES
-from .const import DOMAIN as DAIKIN_DOMAIN
+from .coordinator import OnectaRuntimeData
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -21,13 +18,14 @@ _LOGGER = logging.getLogger(__name__)
 async def async_setup_entry(
     hass: HomeAssistant,
     config_entry: ConfigEntry,
-    async_add_entities: AddEntitiesCallback,
+    async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     entities = []
 
-    coordinator = hass.data[DAIKIN_DOMAIN][COORDINATOR]
+    onecta_data: OnectaRuntimeData = config_entry.runtime_data
+    coordinator = onecta_data.coordinator
 
-    for dev_id, device in hass.data[DAIKIN_DOMAIN][DAIKIN_DEVICES].items():
+    for device in onecta_data.devices.values():
         entities.append(DaikinRefreshButton(device, config_entry, coordinator))
 
     if entities:
@@ -45,6 +43,7 @@ class DaikinRefreshButton(CoordinatorEntity, ButtonEntity):
         self._attr_icon = "mdi:refresh"
         self._attr_name = "Refresh"
         self._attr_device_info = self._device.device_info()
+        self._device.fill_device_info(self._attr_device_info, "gateway")
         self._attr_has_entity_name = True
         self._config_entry = config_entry
 

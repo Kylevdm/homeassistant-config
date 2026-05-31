@@ -1,8 +1,9 @@
-"""Constants for Daikin Oncecta."""
+"""Constants for Daikin Onecta."""
 from homeassistant.components.binary_sensor import BinarySensorDeviceClass
 from homeassistant.components.sensor import CONF_STATE_CLASS
 from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.components.sensor import SensorStateClass
+from homeassistant.components.update import UpdateDeviceClass
 from homeassistant.const import CONCENTRATION_MICROGRAMS_PER_CUBIC_METER
 from homeassistant.const import CONF_DEVICE_CLASS
 from homeassistant.const import CONF_ICON
@@ -10,37 +11,45 @@ from homeassistant.const import CONF_UNIT_OF_MEASUREMENT
 from homeassistant.const import PERCENTAGE
 from homeassistant.const import REVOLUTIONS_PER_MINUTE
 from homeassistant.const import SIGNAL_STRENGTH_DECIBELS_MILLIWATT
+from homeassistant.const import UnitOfEnergy
 from homeassistant.const import UnitOfTemperature
 from homeassistant.helpers.entity import EntityCategory
 
 
 DOMAIN = "daikin_onecta"
-COORDINATOR = "coordinator"
 
 OAUTH2_AUTHORIZE = "https://idp.onecta.daikineurope.com/v1/oidc/authorize"
 OAUTH2_TOKEN = "https://idp.onecta.daikineurope.com/v1/oidc/token"
 
-DAIKIN_DATA = "daikin_data"
-DAIKIN_API = "daikin_api"
-DAIKIN_DEVICES = "daikin_devices"
 DAIKIN_API_URL = "https://api.onecta.daikineurope.com"
 
 SCHEDULE_OFF = "off"
+
+CONF_HOMEKIT_FAN_MODE_ALIASES = "homekit_fan_mode_aliases"
 
 FANMODE_FIXED = "fixed"
 
 SENSOR_PERIOD_DAILY = "d"
 SENSOR_PERIOD_WEEKLY = "w"
 SENSOR_PERIOD_YEARLY = "m"
+SENSOR_PERIOD_MONTHLY = "monthly"
 SENSOR_PERIODS = {
     SENSOR_PERIOD_DAILY: "Daily",
     SENSOR_PERIOD_WEEKLY: "Weekly",
+    SENSOR_PERIOD_MONTHLY: "Monthly",
     SENSOR_PERIOD_YEARLY: "Yearly",
+}
+SENSOR_PERIODS_ARRAY = {
+    SENSOR_PERIOD_DAILY: "d",
+    SENSOR_PERIOD_WEEKLY: "w",
+    SENSOR_PERIOD_YEARLY: "m",
+    SENSOR_PERIOD_MONTHLY: "m",
 }
 
 ENABLED_DEFAULT = "Enabled"
 STATE_CLASS = "STATE"
 ENTITY_CATEGORY = "ENTITY_CATEGORY"
+TRANSLATION_KEY = "TranslationKey"
 
 # This maps the NAME as listed in the Daikin JSON data to:
 # - DEVICE_CLASS: home assistant device class, see
@@ -48,7 +57,26 @@ ENTITY_CATEGORY = "ENTITY_CATEGORY"
 # - UNIT_OF_MEASUREMENT:
 # - ICON: Icon to be used
 # - ENABLED_DEFAULT: Is the sensor enabled by default or not
+# - TRANSLATION_KEY: Translation key
 VALUE_SENSOR_MAPPING = {
+    "sgtin": {
+        CONF_DEVICE_CLASS: None,
+        CONF_STATE_CLASS: None,
+        CONF_UNIT_OF_MEASUREMENT: None,
+        CONF_ICON: "mdi:information-outline",
+        ENABLED_DEFAULT: True,
+        ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "sgtin",
+    },
+    "schedule": {
+        CONF_DEVICE_CLASS: None,
+        CONF_STATE_CLASS: None,
+        CONF_UNIT_OF_MEASUREMENT: None,
+        CONF_ICON: "mdi:calendar-clock",
+        ENABLED_DEFAULT: True,
+        ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "schedule",
+    },
     "controlMode": {
         CONF_DEVICE_CLASS: None,
         CONF_STATE_CLASS: None,
@@ -56,6 +84,7 @@ VALUE_SENSOR_MAPPING = {
         CONF_ICON: "mdi:alphabetical",
         ENABLED_DEFAULT: True,
         ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "controlmode",
     },
     "onOffMode": {
         CONF_DEVICE_CLASS: None,
@@ -64,6 +93,7 @@ VALUE_SENSOR_MAPPING = {
         CONF_ICON: "mdi:toggle-switch-variant",
         ENABLED_DEFAULT: True,
         ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "onoffmode",
     },
     "operationMode": {
         CONF_DEVICE_CLASS: None,
@@ -72,6 +102,7 @@ VALUE_SENSOR_MAPPING = {
         CONF_ICON: "mdi:alphabetical",
         ENABLED_DEFAULT: True,
         ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "operationmode",
     },
     "airPurificationMode": {
         CONF_DEVICE_CLASS: None,
@@ -80,6 +111,7 @@ VALUE_SENSOR_MAPPING = {
         CONF_ICON: "mdi:alphabetical",
         ENABLED_DEFAULT: True,
         ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "airpurificationmode",
     },
     "setpointMode": {
         CONF_DEVICE_CLASS: None,
@@ -88,6 +120,7 @@ VALUE_SENSOR_MAPPING = {
         CONF_ICON: "mdi:alphabetical",
         ENABLED_DEFAULT: True,
         ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "setpointmode",
     },
     "heatupMode": {
         CONF_DEVICE_CLASS: None,
@@ -96,14 +129,7 @@ VALUE_SENSOR_MAPPING = {
         CONF_ICON: "mdi:alphabetical",
         ENABLED_DEFAULT: True,
         ENTITY_CATEGORY: None,
-    },
-    "serialNumber": {
-        CONF_DEVICE_CLASS: None,
-        CONF_STATE_CLASS: None,
-        CONF_UNIT_OF_MEASUREMENT: None,
-        CONF_ICON: "mdi:numeric",
-        ENABLED_DEFAULT: True,
-        ENTITY_CATEGORY: EntityCategory.DIAGNOSTIC,
+        TRANSLATION_KEY: "heatupmode",
     },
     "wifiConnectionSSID": {
         CONF_DEVICE_CLASS: None,
@@ -112,6 +138,7 @@ VALUE_SENSOR_MAPPING = {
         CONF_ICON: "mdi:access-point-network",
         ENABLED_DEFAULT: True,
         ENTITY_CATEGORY: EntityCategory.DIAGNOSTIC,
+        TRANSLATION_KEY: "wificonnectionssid",
     },
     "wifiConnectionStrength": {
         CONF_DEVICE_CLASS: SensorDeviceClass.SIGNAL_STRENGTH,
@@ -120,6 +147,7 @@ VALUE_SENSOR_MAPPING = {
         CONF_ICON: "mdi:wifi",
         ENABLED_DEFAULT: True,
         ENTITY_CATEGORY: EntityCategory.DIAGNOSTIC,
+        TRANSLATION_KEY: "wificonnectionstrength",
     },
     "ssid": {
         CONF_DEVICE_CLASS: None,
@@ -128,6 +156,7 @@ VALUE_SENSOR_MAPPING = {
         CONF_ICON: "mdi:access-point-network",
         ENABLED_DEFAULT: True,
         ENTITY_CATEGORY: EntityCategory.DIAGNOSTIC,
+        TRANSLATION_KEY: "ssid",
     },
     "isHolidayModeActive": {
         CONF_DEVICE_CLASS: None,
@@ -136,6 +165,7 @@ VALUE_SENSOR_MAPPING = {
         CONF_ICON: "mdi:information-outline",
         ENABLED_DEFAULT: True,
         ENTITY_CATEGORY: EntityCategory.DIAGNOSTIC,
+        TRANSLATION_KEY: "isholidaymodeactive",
     },
     "isInErrorState": {
         CONF_DEVICE_CLASS: BinarySensorDeviceClass.PROBLEM,
@@ -144,6 +174,7 @@ VALUE_SENSOR_MAPPING = {
         CONF_ICON: "mdi:information-outline",
         ENABLED_DEFAULT: True,
         ENTITY_CATEGORY: EntityCategory.DIAGNOSTIC,
+        TRANSLATION_KEY: "isinerrorstate",
     },
     "isInWarningState": {
         CONF_DEVICE_CLASS: BinarySensorDeviceClass.PROBLEM,
@@ -152,6 +183,7 @@ VALUE_SENSOR_MAPPING = {
         CONF_ICON: "mdi:information-outline",
         ENABLED_DEFAULT: True,
         ENTITY_CATEGORY: EntityCategory.DIAGNOSTIC,
+        TRANSLATION_KEY: "isinwarningstate",
     },
     "isInInstallerState": {
         CONF_DEVICE_CLASS: None,
@@ -160,6 +192,7 @@ VALUE_SENSOR_MAPPING = {
         CONF_ICON: "mdi:information-outline",
         ENABLED_DEFAULT: True,
         ENTITY_CATEGORY: EntityCategory.DIAGNOSTIC,
+        TRANSLATION_KEY: "isininstallerstate",
     },
     "isInEmergencyState": {
         CONF_DEVICE_CLASS: BinarySensorDeviceClass.PROBLEM,
@@ -168,6 +201,7 @@ VALUE_SENSOR_MAPPING = {
         CONF_ICON: "mdi:information-outline",
         ENABLED_DEFAULT: True,
         ENTITY_CATEGORY: EntityCategory.DIAGNOSTIC,
+        TRANSLATION_KEY: "isinemergencystate",
     },
     "isPowerfulModeActive": {
         CONF_DEVICE_CLASS: None,
@@ -176,6 +210,7 @@ VALUE_SENSOR_MAPPING = {
         CONF_ICON: "mdi:information-outline",
         ENABLED_DEFAULT: True,
         ENTITY_CATEGORY: EntityCategory.DIAGNOSTIC,
+        TRANSLATION_KEY: "ispowerfulmodeactive",
     },
     "isCoolHeatMaster": {
         CONF_DEVICE_CLASS: None,
@@ -184,6 +219,7 @@ VALUE_SENSOR_MAPPING = {
         CONF_ICON: "mdi:information-outline",
         ENABLED_DEFAULT: True,
         ENTITY_CATEGORY: EntityCategory.DIAGNOSTIC,
+        TRANSLATION_KEY: "iscoolheatmaster",
     },
     "isInModeConflict": {
         CONF_DEVICE_CLASS: BinarySensorDeviceClass.PROBLEM,
@@ -192,6 +228,7 @@ VALUE_SENSOR_MAPPING = {
         CONF_ICON: "mdi:information-outline",
         ENABLED_DEFAULT: True,
         ENTITY_CATEGORY: EntityCategory.DIAGNOSTIC,
+        TRANSLATION_KEY: "isinmodeconflict",
     },
     "isInCautionState": {
         CONF_DEVICE_CLASS: BinarySensorDeviceClass.PROBLEM,
@@ -200,6 +237,7 @@ VALUE_SENSOR_MAPPING = {
         CONF_ICON: "mdi:information-outline",
         ENABLED_DEFAULT: True,
         ENTITY_CATEGORY: EntityCategory.DIAGNOSTIC,
+        TRANSLATION_KEY: "isincautionstate",
     },
     "isLockFunctionEnabled": {
         CONF_DEVICE_CLASS: None,
@@ -208,6 +246,7 @@ VALUE_SENSOR_MAPPING = {
         CONF_ICON: "mdi:information-outline",
         ENABLED_DEFAULT: True,
         ENTITY_CATEGORY: EntityCategory.DIAGNOSTIC,
+        TRANSLATION_KEY: "islockfunctionenabled",
     },
     "ledEnabled": {
         CONF_DEVICE_CLASS: None,
@@ -216,38 +255,7 @@ VALUE_SENSOR_MAPPING = {
         CONF_ICON: "mdi:information-outline",
         ENABLED_DEFAULT: True,
         ENTITY_CATEGORY: EntityCategory.DIAGNOSTIC,
-    },
-    "iconId": {
-        CONF_DEVICE_CLASS: None,
-        CONF_STATE_CLASS: None,
-        CONF_UNIT_OF_MEASUREMENT: None,
-        CONF_ICON: "mdi:information-outline",
-        ENABLED_DEFAULT: True,
-        ENTITY_CATEGORY: EntityCategory.DIAGNOSTIC,
-    },
-    "firmwareVersion": {
-        CONF_DEVICE_CLASS: None,
-        CONF_STATE_CLASS: None,
-        CONF_UNIT_OF_MEASUREMENT: None,
-        CONF_ICON: "mdi:information-outline",
-        ENABLED_DEFAULT: True,
-        ENTITY_CATEGORY: EntityCategory.DIAGNOSTIC,
-    },
-    "eepromVersion": {
-        CONF_DEVICE_CLASS: None,
-        CONF_STATE_CLASS: None,
-        CONF_UNIT_OF_MEASUREMENT: None,
-        CONF_ICON: "mdi:information-outline",
-        ENABLED_DEFAULT: True,
-        ENTITY_CATEGORY: EntityCategory.DIAGNOSTIC,
-    },
-    "softwareVersion": {
-        CONF_DEVICE_CLASS: None,
-        CONF_STATE_CLASS: None,
-        CONF_UNIT_OF_MEASUREMENT: None,
-        CONF_ICON: "mdi:information-outline",
-        ENABLED_DEFAULT: True,
-        ENTITY_CATEGORY: EntityCategory.DIAGNOSTIC,
+        TRANSLATION_KEY: "ledenabled",
     },
     "isFirmwareUpdateSupported": {
         CONF_DEVICE_CLASS: None,
@@ -256,6 +264,7 @@ VALUE_SENSOR_MAPPING = {
         CONF_ICON: "mdi:information-outline",
         ENABLED_DEFAULT: True,
         ENTITY_CATEGORY: EntityCategory.DIAGNOSTIC,
+        TRANSLATION_KEY: "isfirmwareupdatesupported",
     },
     "daylightSavingTimeEnabled": {
         CONF_DEVICE_CLASS: None,
@@ -264,14 +273,7 @@ VALUE_SENSOR_MAPPING = {
         CONF_ICON: "mdi:information-outline",
         ENABLED_DEFAULT: True,
         ENTITY_CATEGORY: EntityCategory.DIAGNOSTIC,
-    },
-    "macAddress": {
-        CONF_DEVICE_CLASS: None,
-        CONF_STATE_CLASS: None,
-        CONF_UNIT_OF_MEASUREMENT: None,
-        CONF_ICON: "mdi:information-outline",
-        ENABLED_DEFAULT: True,
-        ENTITY_CATEGORY: EntityCategory.DIAGNOSTIC,
+        TRANSLATION_KEY: "daylightsavingtimeenabled",
     },
     "roomTemperature": {
         CONF_DEVICE_CLASS: SensorDeviceClass.TEMPERATURE,
@@ -280,6 +282,7 @@ VALUE_SENSOR_MAPPING = {
         CONF_ICON: "",
         ENABLED_DEFAULT: True,
         ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "roomtemperature",
     },
     "outdoorTemperature": {
         CONF_DEVICE_CLASS: SensorDeviceClass.TEMPERATURE,
@@ -288,6 +291,7 @@ VALUE_SENSOR_MAPPING = {
         CONF_ICON: "",
         ENABLED_DEFAULT: True,
         ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "outdoortemperature",
     },
     "leavingWaterTemperature": {
         CONF_DEVICE_CLASS: SensorDeviceClass.TEMPERATURE,
@@ -296,6 +300,25 @@ VALUE_SENSOR_MAPPING = {
         CONF_ICON: "",
         ENABLED_DEFAULT: True,
         ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "leavingwatertemperature",
+    },
+    "leavingWaterOffset": {
+        CONF_DEVICE_CLASS: SensorDeviceClass.TEMPERATURE,
+        CONF_STATE_CLASS: SensorStateClass.MEASUREMENT,
+        CONF_UNIT_OF_MEASUREMENT: UnitOfTemperature.CELSIUS,
+        CONF_ICON: "",
+        ENABLED_DEFAULT: True,
+        ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "leavingwateroffset",
+    },
+    "calculatedLeavingWaterTemperature": {
+        CONF_DEVICE_CLASS: SensorDeviceClass.TEMPERATURE,
+        CONF_STATE_CLASS: SensorStateClass.MEASUREMENT,
+        CONF_UNIT_OF_MEASUREMENT: UnitOfTemperature.CELSIUS,
+        CONF_ICON: "",
+        ENABLED_DEFAULT: True,
+        ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "calculatedleavingwatertemperature",
     },
     "tankTemperature": {
         CONF_DEVICE_CLASS: SensorDeviceClass.TEMPERATURE,
@@ -304,6 +327,7 @@ VALUE_SENSOR_MAPPING = {
         CONF_ICON: "mdi:bathtub-outline",
         ENABLED_DEFAULT: True,
         ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "tanktemperature",
     },
     "heatExchangerTemperature": {
         CONF_DEVICE_CLASS: SensorDeviceClass.TEMPERATURE,
@@ -312,6 +336,7 @@ VALUE_SENSOR_MAPPING = {
         CONF_ICON: "",
         ENABLED_DEFAULT: True,
         ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "heatexchangertemperature",
     },
     "suctionTemperature": {
         CONF_DEVICE_CLASS: SensorDeviceClass.TEMPERATURE,
@@ -320,6 +345,7 @@ VALUE_SENSOR_MAPPING = {
         CONF_ICON: "",
         ENABLED_DEFAULT: True,
         ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "suctiontemperature",
     },
     "deltaD": {
         CONF_DEVICE_CLASS: SensorDeviceClass.TEMPERATURE,
@@ -328,6 +354,7 @@ VALUE_SENSOR_MAPPING = {
         CONF_ICON: "",
         ENABLED_DEFAULT: True,
         ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "deltad",
     },
     "dryKeepSetting": {
         CONF_DEVICE_CLASS: None,
@@ -336,6 +363,7 @@ VALUE_SENSOR_MAPPING = {
         CONF_ICON: "mdi:water-percent",
         ENABLED_DEFAULT: True,
         ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "drykeepsetting",
     },
     "streamerMode": {
         CONF_DEVICE_CLASS: None,
@@ -344,6 +372,7 @@ VALUE_SENSOR_MAPPING = {
         CONF_ICON: "hass:air-filter",
         ENABLED_DEFAULT: True,
         ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "streamermode",
     },
     "powerfulMode": {
         CONF_DEVICE_CLASS: None,
@@ -352,6 +381,7 @@ VALUE_SENSOR_MAPPING = {
         CONF_ICON: "mdi:rocket-launch",
         ENABLED_DEFAULT: True,
         ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "powerfulmode",
     },
     "econoMode": {
         CONF_DEVICE_CLASS: None,
@@ -360,6 +390,7 @@ VALUE_SENSOR_MAPPING = {
         CONF_ICON: "mdi:leaf",
         ENABLED_DEFAULT: True,
         ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "economode",
     },
     "fanMotorRotationSpeed": {
         CONF_DEVICE_CLASS: None,
@@ -368,6 +399,7 @@ VALUE_SENSOR_MAPPING = {
         CONF_ICON: "mdi:fan",
         ENABLED_DEFAULT: True,
         ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "fanmotorrotationspeed",
     },
     "ipAddress": {
         CONF_DEVICE_CLASS: None,
@@ -376,22 +408,7 @@ VALUE_SENSOR_MAPPING = {
         CONF_ICON: "mdi:ip-network",
         ENABLED_DEFAULT: True,
         ENTITY_CATEGORY: EntityCategory.DIAGNOSTIC,
-    },
-    "name": {
-        CONF_DEVICE_CLASS: None,
-        CONF_STATE_CLASS: None,
-        CONF_UNIT_OF_MEASUREMENT: None,
-        CONF_ICON: "mdi:information-outline",
-        ENABLED_DEFAULT: True,
-        ENTITY_CATEGORY: EntityCategory.DIAGNOSTIC,
-    },
-    "modelInfo": {
-        CONF_DEVICE_CLASS: None,
-        CONF_STATE_CLASS: None,
-        CONF_UNIT_OF_MEASUREMENT: None,
-        CONF_ICON: "mdi:information-outline",
-        ENABLED_DEFAULT: True,
-        ENTITY_CATEGORY: EntityCategory.DIAGNOSTIC,
+        TRANSLATION_KEY: "ipaddress",
     },
     "dateTime": {
         CONF_DEVICE_CLASS: None,
@@ -400,14 +417,7 @@ VALUE_SENSOR_MAPPING = {
         CONF_ICON: "mdi:information-outline",
         ENABLED_DEFAULT: True,
         ENTITY_CATEGORY: EntityCategory.DIAGNOSTIC,
-    },
-    "miconId": {
-        CONF_DEVICE_CLASS: None,
-        CONF_STATE_CLASS: None,
-        CONF_UNIT_OF_MEASUREMENT: None,
-        CONF_ICON: "mdi:information-outline",
-        ENABLED_DEFAULT: True,
-        ENTITY_CATEGORY: EntityCategory.DIAGNOSTIC,
+        TRANSLATION_KEY: "datetime",
     },
     "regionCode": {
         CONF_DEVICE_CLASS: None,
@@ -416,6 +426,7 @@ VALUE_SENSOR_MAPPING = {
         CONF_ICON: "mdi:information-outline",
         ENABLED_DEFAULT: True,
         ENTITY_CATEGORY: EntityCategory.DIAGNOSTIC,
+        TRANSLATION_KEY: "regioncode",
     },
     "errorCode": {
         CONF_DEVICE_CLASS: None,
@@ -424,6 +435,7 @@ VALUE_SENSOR_MAPPING = {
         CONF_ICON: "mdi:information-outline",
         ENABLED_DEFAULT: True,
         ENTITY_CATEGORY: EntityCategory.DIAGNOSTIC,
+        TRANSLATION_KEY: "errorcode",
     },
     "timeZone": {
         CONF_DEVICE_CLASS: None,
@@ -432,6 +444,7 @@ VALUE_SENSOR_MAPPING = {
         CONF_ICON: "mdi:information-outline",
         ENABLED_DEFAULT: True,
         ENTITY_CATEGORY: EntityCategory.DIAGNOSTIC,
+        TRANSLATION_KEY: "timezone",
     },
     "roomHumidity": {
         CONF_DEVICE_CLASS: SensorDeviceClass.HUMIDITY,
@@ -440,6 +453,7 @@ VALUE_SENSOR_MAPPING = {
         CONF_ICON: "mdi:water-percent",
         ENABLED_DEFAULT: True,
         ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "roomhumidity",
     },
     "pm1Concentration": {
         CONF_DEVICE_CLASS: SensorDeviceClass.PM1,
@@ -448,6 +462,7 @@ VALUE_SENSOR_MAPPING = {
         CONF_ICON: "mdi:blur",
         ENABLED_DEFAULT: True,
         ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "pm1concentration",
     },
     "pm25Concentration": {
         CONF_DEVICE_CLASS: SensorDeviceClass.PM25,
@@ -456,6 +471,7 @@ VALUE_SENSOR_MAPPING = {
         CONF_ICON: "mdi:blur",
         ENABLED_DEFAULT: True,
         ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "pm25concentration",
     },
     "pm10Concentration": {
         CONF_DEVICE_CLASS: SensorDeviceClass.PM10,
@@ -464,5 +480,168 @@ VALUE_SENSOR_MAPPING = {
         CONF_ICON: "mdi:blur",
         ENABLED_DEFAULT: True,
         ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "pm10concentration",
+    },
+    "CoolingDailyElectricalConsumption": {
+        CONF_DEVICE_CLASS: SensorDeviceClass.ENERGY,
+        CONF_STATE_CLASS: SensorStateClass.TOTAL_INCREASING,
+        CONF_UNIT_OF_MEASUREMENT: UnitOfEnergy.KILO_WATT_HOUR,
+        CONF_ICON: "mdi:snowflake",
+        ENABLED_DEFAULT: True,
+        ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "coolingdailyelectricalconsumption",
+    },
+    "CoolingWeeklyElectricalConsumption": {
+        CONF_DEVICE_CLASS: SensorDeviceClass.ENERGY,
+        CONF_STATE_CLASS: SensorStateClass.TOTAL_INCREASING,
+        CONF_UNIT_OF_MEASUREMENT: UnitOfEnergy.KILO_WATT_HOUR,
+        CONF_ICON: "mdi:snowflake",
+        ENABLED_DEFAULT: True,
+        ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "coolingweeklyelectricalconsumption",
+    },
+    "CoolingMonthlyElectricalConsumption": {
+        CONF_DEVICE_CLASS: SensorDeviceClass.ENERGY,
+        CONF_STATE_CLASS: SensorStateClass.TOTAL_INCREASING,
+        CONF_UNIT_OF_MEASUREMENT: UnitOfEnergy.KILO_WATT_HOUR,
+        CONF_ICON: "mdi:snowflake",
+        ENABLED_DEFAULT: True,
+        ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "coolingmonthlyelectricalconsumption",
+    },
+    "CoolingYearlyElectricalConsumption": {
+        CONF_DEVICE_CLASS: SensorDeviceClass.ENERGY,
+        CONF_STATE_CLASS: SensorStateClass.TOTAL_INCREASING,
+        CONF_UNIT_OF_MEASUREMENT: UnitOfEnergy.KILO_WATT_HOUR,
+        CONF_ICON: "mdi:snowflake",
+        ENABLED_DEFAULT: True,
+        ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "coolingyearlyelectricalconsumption",
+    },
+    "HeatingDailyElectricalConsumption": {
+        CONF_DEVICE_CLASS: SensorDeviceClass.ENERGY,
+        CONF_STATE_CLASS: SensorStateClass.TOTAL_INCREASING,
+        CONF_UNIT_OF_MEASUREMENT: UnitOfEnergy.KILO_WATT_HOUR,
+        CONF_ICON: "mdi:fire",
+        ENABLED_DEFAULT: True,
+        ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "heatingdailyelectricalconsumption",
+    },
+    "HeatingWeeklyElectricalConsumption": {
+        CONF_DEVICE_CLASS: SensorDeviceClass.ENERGY,
+        CONF_STATE_CLASS: SensorStateClass.TOTAL_INCREASING,
+        CONF_UNIT_OF_MEASUREMENT: UnitOfEnergy.KILO_WATT_HOUR,
+        CONF_ICON: "mdi:fire",
+        ENABLED_DEFAULT: True,
+        ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "heatingweeklyelectricalconsumption",
+    },
+    "HeatingMonthlyElectricalConsumption": {
+        CONF_DEVICE_CLASS: SensorDeviceClass.ENERGY,
+        CONF_STATE_CLASS: SensorStateClass.TOTAL_INCREASING,
+        CONF_UNIT_OF_MEASUREMENT: UnitOfEnergy.KILO_WATT_HOUR,
+        CONF_ICON: "mdi:fire",
+        ENABLED_DEFAULT: True,
+        ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "heatingmonthlyelectricalconsumption",
+    },
+    "HeatingYearlyElectricalConsumption": {
+        CONF_DEVICE_CLASS: SensorDeviceClass.ENERGY,
+        CONF_STATE_CLASS: SensorStateClass.TOTAL_INCREASING,
+        CONF_UNIT_OF_MEASUREMENT: UnitOfEnergy.KILO_WATT_HOUR,
+        CONF_ICON: "mdi:fire",
+        ENABLED_DEFAULT: True,
+        ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "heatingyearlyelectricalconsumption",
+    },
+    "CoolingDailyGasConsumption": {
+        CONF_DEVICE_CLASS: SensorDeviceClass.ENERGY,
+        CONF_STATE_CLASS: SensorStateClass.TOTAL_INCREASING,
+        CONF_UNIT_OF_MEASUREMENT: UnitOfEnergy.KILO_WATT_HOUR,
+        CONF_ICON: "mdi:snowflake",
+        ENABLED_DEFAULT: True,
+        ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "coolingdailygasconsumption",
+    },
+    "CoolingWeeklyGasConsumption": {
+        CONF_DEVICE_CLASS: SensorDeviceClass.ENERGY,
+        CONF_STATE_CLASS: SensorStateClass.TOTAL_INCREASING,
+        CONF_UNIT_OF_MEASUREMENT: UnitOfEnergy.KILO_WATT_HOUR,
+        CONF_ICON: "mdi:snowflake",
+        ENABLED_DEFAULT: True,
+        ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "coolingweeklygasconsumption",
+    },
+    "CoolingMonthlyGasConsumption": {
+        CONF_DEVICE_CLASS: SensorDeviceClass.ENERGY,
+        CONF_STATE_CLASS: SensorStateClass.TOTAL_INCREASING,
+        CONF_UNIT_OF_MEASUREMENT: UnitOfEnergy.KILO_WATT_HOUR,
+        CONF_ICON: "mdi:snowflake",
+        ENABLED_DEFAULT: True,
+        ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "coolingmonthlygasconsumption",
+    },
+    "CoolingYearlyGasConsumption": {
+        CONF_DEVICE_CLASS: SensorDeviceClass.ENERGY,
+        CONF_STATE_CLASS: SensorStateClass.TOTAL_INCREASING,
+        CONF_UNIT_OF_MEASUREMENT: UnitOfEnergy.KILO_WATT_HOUR,
+        CONF_ICON: "mdi:snowflake",
+        ENABLED_DEFAULT: True,
+        ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "coolingyearlygasconsumption",
+    },
+    "HeatingDailyGasConsumption": {
+        CONF_DEVICE_CLASS: SensorDeviceClass.ENERGY,
+        CONF_STATE_CLASS: SensorStateClass.TOTAL_INCREASING,
+        CONF_UNIT_OF_MEASUREMENT: UnitOfEnergy.KILO_WATT_HOUR,
+        CONF_ICON: "mdi:fire",
+        ENABLED_DEFAULT: True,
+        ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "heatingdailygasconsumption",
+    },
+    "HeatingWeeklyGasConsumption": {
+        CONF_DEVICE_CLASS: SensorDeviceClass.ENERGY,
+        CONF_STATE_CLASS: SensorStateClass.TOTAL_INCREASING,
+        CONF_UNIT_OF_MEASUREMENT: UnitOfEnergy.KILO_WATT_HOUR,
+        CONF_ICON: "mdi:fire",
+        ENABLED_DEFAULT: True,
+        ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "heatingweeklygasconsumption",
+    },
+    "HeatingMonthlyGasConsumption": {
+        CONF_DEVICE_CLASS: SensorDeviceClass.ENERGY,
+        CONF_STATE_CLASS: SensorStateClass.TOTAL_INCREASING,
+        CONF_UNIT_OF_MEASUREMENT: UnitOfEnergy.KILO_WATT_HOUR,
+        CONF_ICON: "mdi:fire",
+        ENABLED_DEFAULT: True,
+        ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "heatingmonthlygasconsumption",
+    },
+    "HeatingYearlyGasConsumption": {
+        CONF_DEVICE_CLASS: SensorDeviceClass.ENERGY,
+        CONF_STATE_CLASS: SensorStateClass.TOTAL_INCREASING,
+        CONF_UNIT_OF_MEASUREMENT: UnitOfEnergy.KILO_WATT_HOUR,
+        CONF_ICON: "mdi:fire",
+        ENABLED_DEFAULT: True,
+        ENTITY_CATEGORY: None,
+        TRANSLATION_KEY: "heatingyearlygasconsumption",
+    },
+    "RatelimitRemainingDay": {
+        CONF_DEVICE_CLASS: None,
+        CONF_STATE_CLASS: SensorStateClass.MEASUREMENT,
+        CONF_UNIT_OF_MEASUREMENT: None,
+        CONF_ICON: "mdi:information-outline",
+        ENABLED_DEFAULT: True,
+        ENTITY_CATEGORY: EntityCategory.DIAGNOSTIC,
+        TRANSLATION_KEY: "ratelimitremainingday",
+    },
+    "FirmwareUpdate": {
+        CONF_DEVICE_CLASS: UpdateDeviceClass.FIRMWARE,
+        CONF_STATE_CLASS: None,
+        CONF_UNIT_OF_MEASUREMENT: None,
+        CONF_ICON: "mdi:update",
+        ENABLED_DEFAULT: True,
+        ENTITY_CATEGORY: EntityCategory.DIAGNOSTIC,
+        TRANSLATION_KEY: "firmwareupdate",
     },
 }

@@ -1,32 +1,41 @@
 import logging
-import re
 
 from homeassistant.components.select import SelectEntity
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import CONF_ICON
 from homeassistant.core import callback
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import COORDINATOR
-from .const import DAIKIN_DEVICES
-from .const import DOMAIN as DAIKIN_DOMAIN
+from .const import DOMAIN
+from .const import ENABLED_DEFAULT
 from .const import SCHEDULE_OFF
+from .const import TRANSLATION_KEY
+from .const import VALUE_SENSOR_MAPPING
+from .coordinator import OnectaRuntimeData
 from .device import DaikinOnectaDevice
 
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_setup_entry(hass, entry, async_add_entities):
+async def async_setup_entry(
+    hass: HomeAssistant,
+    config_entry: ConfigEntry,
+    async_add_entities: AddConfigEntryEntitiesCallback,
+) -> None:
     """Set up Daikin climate based on config_entry."""
-    coordinator = hass.data[DAIKIN_DOMAIN][COORDINATOR]
+    onecta_data: OnectaRuntimeData = config_entry.runtime_data
+    coordinator = onecta_data.coordinator
     sensors = []
-    for dev_id, device in hass.data[DAIKIN_DOMAIN][DAIKIN_DEVICES].items():
+    for device in onecta_data.devices.values():
         managementPoints = device.daikin_data.get("managementPoints", [])
         for management_point in managementPoints:
-            management_point_type = management_point["managementPointType"]
-            embedded_id = management_point["embeddedId"]
-
             # When we have a schedule we provide a select sensor
-            demand = management_point.get("schedule")
-            if demand is not None:
+            schedule = management_point.get("schedule")
+            if schedule is not None:
+                management_point_type = management_point["managementPointType"]
+                embedded_id = management_point["embeddedId"]
                 _LOGGER.info("Device '%s' provides schedule", device.name)
                 sensors.append(DaikinScheduleSelect(device, coordinator, embedded_id, management_point_type, "schedule"))
 
@@ -34,34 +43,40 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
 
 class DaikinScheduleSelect(CoordinatorEntity, SelectEntity):
-    """Daikin Schecule Select class."""
+    """Daikin Schedule Select class."""
 
     def __init__(self, device: DaikinOnectaDevice, coordinator, embedded_id, management_point_type, value) -> None:
         _LOGGER.info("DaikinScheduleSelect '%s' '%s'", management_point_type, value)
         super().__init__(coordinator)
         self._device = device
-        self._embedded_id = embedded_id
         self._management_point_type = management_point_type
-        self._value = value
         mpt = management_point_type[0].upper() + management_point_type[1:]
-        myname = value[0].upper() + value[1:]
-        readable = re.findall("[A-Z][^A-Z]*", myname)
-        self._attr_name = f"{mpt} {' '.join(readable)}"
-        self._attr_unique_id = f"{self._device.id}_{self._management_point_type}_{self._value}"
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, self._device.id + self._management_point_type)},
+            "name": self._device.name + " " + mpt,
+            "via_device": (DOMAIN, self._device.id),
+        }
+        self._device.fill_device_info(self._attr_device_info, management_point_type)
+        self._embedded_id = embedded_id
+        self._value = value
         self._attr_has_entity_name = True
-        self._attr_icon = "mdi:calendar-clock"
+        self._attr_unique_id = f"{self._device.id}_{self._management_point_type}_{self._value}"
+        sensor_settings = VALUE_SENSOR_MAPPING.get(value)
+        if sensor_settings is not None:
+            self._attr_icon = sensor_settings[CONF_ICON]
+            self._attr_entity_registry_enabled_default = sensor_settings[ENABLED_DEFAULT]
+            self._attr_translation_key = sensor_settings[TRANSLATION_KEY]
         self.update_state()
         _LOGGER.info(
             "Device '%s:%s' supports sensor '%s'",
             device.name,
             self._embedded_id,
-            self._attr_name,
+            self._value,
         )
 
     def update_state(self) -> None:
         self._attr_options = self.get_options()
         self._attr_current_option = self.get_current_option()
-        self._attr_device_info = self._device.device_info()
 
     @property
     def available(self) -> bool:
@@ -75,7 +90,8 @@ class DaikinScheduleSelect(CoordinatorEntity, SelectEntity):
     def get_current_option(self):
         """Return the state of the sensor."""
         res = None
-        for management_point in self._device.daikin_data["managementPoints"]:
+        management_points = self._device.daikin_data.get("managementPoints", [])
+        for management_point in management_points:
             if self._embedded_id == management_point["embeddedId"]:
                 management_point_type = management_point["managementPointType"]
                 if self._management_point_type == management_point_type:
@@ -96,7 +112,8 @@ class DaikinScheduleSelect(CoordinatorEntity, SelectEntity):
         _LOGGER.debug("Device '%s' selecting schedule %s", self._device.name, option)
         currentMode = ""
         scheduleid = option
-        for management_point in self._device.daikin_data["managementPoints"]:
+        management_points = self._device.daikin_data.get("managementPoints", [])
+        for management_point in management_points:
             if self._embedded_id == management_point["embeddedId"]:
                 management_point_type = management_point["managementPointType"]
                 if self._management_point_type == management_point_type:
@@ -134,7 +151,8 @@ class DaikinScheduleSelect(CoordinatorEntity, SelectEntity):
 
     def get_options(self):
         opt = []
-        for management_point in self._device.daikin_data["managementPoints"]:
+        management_points = self._device.daikin_data.get("managementPoints", [])
+        for management_point in management_points:
             if self._embedded_id == management_point["embeddedId"]:
                 management_point_type = management_point["managementPointType"]
                 if self._management_point_type == management_point_type:

@@ -1,7 +1,7 @@
 
 # Loads default set of integrations. Do not remove.
 default_config:
-
+  
 #advanced:
 #  homeassistant_legacy_entity_attributes: false
 #  homeassistant_legacy_triggers: false
@@ -19,7 +19,14 @@ automation: !include automations.yaml
 script: !include scripts.yaml
 scene: !include scenes.yaml
 
+input_boolean:
+  home_occupied:
+    name: Home Occupied
+    icon: mdi:home-account
+
 my:
+
+
 
 sensor:
   - platform: average
@@ -31,32 +38,6 @@ sensor:
 
 template:
   - sensor:
-      - name: "House Load"
-        unique_id: house_load_power
-        unit_of_measurement: "W"
-        device_class: power
-        state_class: measurement
-        state: >
-          {% set solar = states('sensor.myenergi_harvi_13913276_generation_ct1') | float(0) %}
-          {% set battery = states('sensor.myenergi_harvi_13913276_ac_battery_ct2') | float(0) %}
-          {% set grid = states('sensor.myenergi_harvi_2639268_grid_ct1') | float(0) %}
-          {{ (solar + battery + grid) | round(0) }}
-  - sensor:
-      - platform: statistics
-        name: "House Load 7 Day Average"
-        entity_id: sensor.house_load_daily
-        state_characteristic: mean
-        max_age:
-          days: 7
-          
-  - sensor:
-      - name: "Battery Power"
-        unit_of_measurement: "W"
-        state: >
-          {{ (states('sensor.solisac_battery_voltage') | float) * 
-             (states('sensor.solisac_bms_battery_current') | float) }}
-
-  - sensor:
       # Current grid import (positive) or export (negative) in Watts
       - name: "Total Grid Load"
         unique_id: total_grid_load
@@ -64,136 +45,235 @@ template:
         device_class: power
         state_class: measurement
         state: >
-          {{ states('sensor.myenergi_69_stirtingale_road_eddi_power_grid') | float(0) }}
-      
-      # Calculate available capacity for battery charging
-      - name: "Available Battery Charge Capacity"
-        unique_id: available_battery_charge_capacity
-        unit_of_measurement: "W"
-        device_class: power
-        state_class: measurement
-        state: >
-          {% set max_grid = 18000 %}
-          {% set current_grid_import = states('sensor.myenergi_69_stirtingale_road_eddi_power_grid') | float(0) %}
-          {% set battery_charging = states('sensor.battery_charge_power') | float(0) %}
-          {% set available = max_grid - current_grid_import + battery_charging %}
-          {{ [0, available] | max | round(0) }}
+          {{ states('sensor.myenergi_bath_zappi_master_power_grid') | float(0) }}
       
       # Determine charging phase based on SOC
       - name: "Battery Charge Phase"
         unique_id: battery_charge_phase
         state: >
-          {% set soc = states('sensor.solisac_battery_soc') | float(0) %}
-          {% if soc < 90 %}
+          {% set b_voltage = states('sensor.sp18b2311040070_voltage') | float(0) %}
+          {% if b_voltage < 54.4 %}
             bulk
-          {% elif soc < 95 %}
+          {% elif b_voltage < 56.8 %}
             absorption
-          {% elif soc < 100 %}
+          {% elif b_voltage < 58.4 %}
             top_balance
           {% else %}
             complete
           {% endif %}
         icon: >
-          {% set soc = states('sensor.solisac_battery_soc') | float(0) %}
-          {% if soc < 90 %}
+          {% set b_voltage = states('sensor.sp18b2311040070_voltage') | float(0) %}
+          {% if b_voltage < 54.4 %}
             mdi:battery-charging-50
-          {% elif soc < 95 %}
+          {% elif b_voltage < 56.8 %}
             mdi:battery-charging-80
-          {% elif soc < 100 %}
-            mdi:battery-charging-90
+          {% elif b_voltage < 58.4 %}
+            mdi:battery-charging-100
           {% else %}
             mdi:battery
           {% endif %}
-      
-      # Calculate required charge to reach target SOC
-      - name: "Battery Charge Needed"
-        unique_id: battery_charge_needed
-        unit_of_measurement: "kWh"
-        device_class: energy
+          
+      # Seplos cell voltages (0–15)
+      - name: "Seplos Cell 0 Voltage"
+        unique_id: seplos_cell_0_voltage
+        unit_of_measurement: "V"
+        device_class: voltage
         state_class: measurement
         state: >
-          {% set current_soc = states('sensor.solisac_battery_soc') | float(0) %}
-          {% set battery_capacity = 26.88 %}
-          {% set target_soc = 95 if states('sensor.battery_charge_phase') != 'top_balance' else 100 %}
-          {% set current_kwh = (current_soc / 100) * battery_capacity %}
-          {% set target_kwh = (target_soc / 100) * battery_capacity %}
-          {% set needed = target_kwh - current_kwh %}
-          {{ [0, needed] | max | round(2) }}
-      
-      # Calculate time remaining in current cheap slot
-      - name: "Cheap Slot Time Remaining"
-        unique_id: cheap_slot_time_remaining
-        unit_of_measurement: "h"
-        device_class: duration
+          {{ (state_attr('sensor.sp18b2311040070_delta_cell_voltage', 'cell_voltages') | default([], true))[0] | default(none) }}
+        availability: >
+          {{ has_value('sensor.sp18b2311040070_delta_cell_voltage')
+             and state_attr('sensor.sp18b2311040070_delta_cell_voltage', 'cell_voltages') is not none }}
+
+      - name: "Seplos Cell 1 Voltage"
+        unique_id: seplos_cell_1_voltage
+        unit_of_measurement: "V"
+        device_class: voltage
+        state_class: measurement
         state: >
-          {% set now_time = now() %}
-          {% set slot_end = today_at("05:00") %}
-          {% if now_time > slot_end %}
-            {% set slot_end = slot_end + timedelta(days=1) %}
-          {% endif %}
-          {% set remaining_seconds = (slot_end - now_time).total_seconds() %}
-          {% set remaining_hours = remaining_seconds / 3600 %}
-          {{ [0, remaining_hours] | max | round(2) }}
-      
-      # Calculate target Solis charge current (Phase 1: Solis only, no rectifier)
-      - name: "Target Solis Charge Current"
-        unique_id: target_solis_charge_current
-        unit_of_measurement: "A"
-        device_class: current
+          {{ (state_attr('sensor.sp18b2311040070_delta_cell_voltage', 'cell_voltages') | default([], true))[1] | default(none) }}
+        availability: >
+          {{ has_value('sensor.sp18b2311040070_delta_cell_voltage')
+             and state_attr('sensor.sp18b2311040070_delta_cell_voltage', 'cell_voltages') is not none }}
+
+      - name: "Seplos Cell 2 Voltage"
+        unique_id: seplos_cell_2_voltage
+        unit_of_measurement: "V"
+        device_class: voltage
+        state_class: measurement
         state: >
-          {% set phase = states('sensor.battery_charge_phase') %}
-          {% if phase == 'bulk' %}
-            62.5
-          {% elif phase == 'absorption' %}
-            31
-          {% elif phase == 'top_balance' %}
-            15
-          {% else %}
-            0
-          {% endif %}
-      
+          {{ (state_attr('sensor.sp18b2311040070_delta_cell_voltage', 'cell_voltages') | default([], true))[2] | default(none) }}
+        availability: >
+          {{ has_value('sensor.sp18b2311040070_delta_cell_voltage')
+             and state_attr('sensor.sp18b2311040070_delta_cell_voltage', 'cell_voltages') is not none }}
+
+      - name: "Seplos Cell 3 Voltage"
+        unique_id: seplos_cell_3_voltage
+        unit_of_measurement: "V"
+        device_class: voltage
+        state_class: measurement
+        state: >
+          {{ (state_attr('sensor.sp18b2311040070_delta_cell_voltage', 'cell_voltages') | default([], true))[3] | default(none) }}
+        availability: >
+          {{ has_value('sensor.sp18b2311040070_delta_cell_voltage')
+             and state_attr('sensor.sp18b2311040070_delta_cell_voltage', 'cell_voltages') is not none }}
+
+      - name: "Seplos Cell 4 Voltage"
+        unique_id: seplos_cell_4_voltage
+        unit_of_measurement: "V"
+        device_class: voltage
+        state_class: measurement
+        state: >
+          {{ (state_attr('sensor.sp18b2311040070_delta_cell_voltage', 'cell_voltages') | default([], true))[4] | default(none) }}
+        availability: >
+          {{ has_value('sensor.sp18b2311040070_delta_cell_voltage')
+             and state_attr('sensor.sp18b2311040070_delta_cell_voltage', 'cell_voltages') is not none }}
+
+      - name: "Seplos Cell 5 Voltage"
+        unique_id: seplos_cell_5_voltage
+        unit_of_measurement: "V"
+        device_class: voltage
+        state_class: measurement
+        state: >
+          {{ (state_attr('sensor.sp18b2311040070_delta_cell_voltage', 'cell_voltages') | default([], true))[5] | default(none) }}
+        availability: >
+          {{ has_value('sensor.sp18b2311040070_delta_cell_voltage')
+             and state_attr('sensor.sp18b2311040070_delta_cell_voltage', 'cell_voltages') is not none }}
+
+      - name: "Seplos Cell 6 Voltage"
+        unique_id: seplos_cell_6_voltage
+        unit_of_measurement: "V"
+        device_class: voltage
+        state_class: measurement
+        state: >
+          {{ (state_attr('sensor.sp18b2311040070_delta_cell_voltage', 'cell_voltages') | default([], true))[6] | default(none) }}
+        availability: >
+          {{ has_value('sensor.sp18b2311040070_delta_cell_voltage')
+             and state_attr('sensor.sp18b2311040070_delta_cell_voltage', 'cell_voltages') is not none }}
+
+      - name: "Seplos Cell 7 Voltage"
+        unique_id: seplos_cell_7_voltage
+        unit_of_measurement: "V"
+        device_class: voltage
+        state_class: measurement
+        state: >
+          {{ (state_attr('sensor.sp18b2311040070_delta_cell_voltage', 'cell_voltages') | default([], true))[7] | default(none) }}
+        availability: >
+          {{ has_value('sensor.sp18b2311040070_delta_cell_voltage')
+             and state_attr('sensor.sp18b2311040070_delta_cell_voltage', 'cell_voltages') is not none }}
+
+      - name: "Seplos Cell 8 Voltage"
+        unique_id: seplos_cell_8_voltage
+        unit_of_measurement: "V"
+        device_class: voltage
+        state_class: measurement
+        state: >
+          {{ (state_attr('sensor.sp18b2311040070_delta_cell_voltage', 'cell_voltages') | default([], true))[8] | default(none) }}
+        availability: >
+          {{ has_value('sensor.sp18b2311040070_delta_cell_voltage')
+             and state_attr('sensor.sp18b2311040070_delta_cell_voltage', 'cell_voltages') is not none }}
+
+      - name: "Seplos Cell 9 Voltage"
+        unique_id: seplos_cell_9_voltage
+        unit_of_measurement: "V"
+        device_class: voltage
+        state_class: measurement
+        state: >
+          {{ (state_attr('sensor.sp18b2311040070_delta_cell_voltage', 'cell_voltages') | default([], true))[9] | default(none) }}
+        availability: >
+          {{ has_value('sensor.sp18b2311040070_delta_cell_voltage')
+             and state_attr('sensor.sp18b2311040070_delta_cell_voltage', 'cell_voltages') is not none }}
+
+      - name: "Seplos Cell 10 Voltage"
+        unique_id: seplos_cell_10_voltage
+        unit_of_measurement: "V"
+        device_class: voltage
+        state_class: measurement
+        state: >
+          {{ (state_attr('sensor.sp18b2311040070_delta_cell_voltage', 'cell_voltages') | default([], true))[10] | default(none) }}
+        availability: >
+          {{ has_value('sensor.sp18b2311040070_delta_cell_voltage')
+             and state_attr('sensor.sp18b2311040070_delta_cell_voltage', 'cell_voltages') is not none }}
+
+      - name: "Seplos Cell 11 Voltage"
+        unique_id: seplos_cell_11_voltage
+        unit_of_measurement: "V"
+        device_class: voltage
+        state_class: measurement
+        state: >
+          {{ (state_attr('sensor.sp18b2311040070_delta_cell_voltage', 'cell_voltages') | default([], true))[11] | default(none) }}
+        availability: >
+          {{ has_value('sensor.sp18b2311040070_delta_cell_voltage')
+             and state_attr('sensor.sp18b2311040070_delta_cell_voltage', 'cell_voltages') is not none }}
+
+      - name: "Seplos Cell 12 Voltage"
+        unique_id: seplos_cell_12_voltage
+        unit_of_measurement: "V"
+        device_class: voltage
+        state_class: measurement
+        state: >
+          {{ (state_attr('sensor.sp18b2311040070_delta_cell_voltage', 'cell_voltages') | default([], true))[12] | default(none) }}
+        availability: >
+          {{ has_value('sensor.sp18b2311040070_delta_cell_voltage')
+             and state_attr('sensor.sp18b2311040070_delta_cell_voltage', 'cell_voltages') is not none }}
+
+      - name: "Seplos Cell 13 Voltage"
+        unique_id: seplos_cell_13_voltage
+        unit_of_measurement: "V"
+        device_class: voltage
+        state_class: measurement
+        state: >
+          {{ (state_attr('sensor.sp18b2311040070_delta_cell_voltage', 'cell_voltages') | default([], true))[13] | default(none) }}
+        availability: >
+          {{ has_value('sensor.sp18b2311040070_delta_cell_voltage')
+             and state_attr('sensor.sp18b2311040070_delta_cell_voltage', 'cell_voltages') is not none }}
+
+      - name: "Seplos Cell 14 Voltage"
+        unique_id: seplos_cell_14_voltage
+        unit_of_measurement: "V"
+        device_class: voltage
+        state_class: measurement
+        state: >
+          {{ (state_attr('sensor.sp18b2311040070_delta_cell_voltage', 'cell_voltages') | default([], true))[14] | default(none) }}
+        availability: >
+          {{ has_value('sensor.sp18b2311040070_delta_cell_voltage')
+             and state_attr('sensor.sp18b2311040070_delta_cell_voltage', 'cell_voltages') is not none }}
+
+      - name: "Seplos Cell 15 Voltage"
+        unique_id: seplos_cell_15_voltage
+        unit_of_measurement: "V"
+        device_class: voltage
+        state_class: measurement
+        state: >
+          {{ (state_attr('sensor.sp18b2311040070_delta_cell_voltage', 'cell_voltages') | default([], true))[15] | default(none) }}
+        availability: >
+          {{ has_value('sensor.sp18b2311040070_delta_cell_voltage')
+             and state_attr('sensor.sp18b2311040070_delta_cell_voltage', 'cell_voltages') is not none }}
+          
   - binary_sensor:
-      # Detect if we're in a cheap rate slot
-      - name: "Cheap Rate Active"
-        unique_id: cheap_rate_active
-        state: >
-          {{ is_state('binary_sensor.octopus_energy_electricity_22l4386358_2200012282082_off_peak', 'on') 
-             or is_state('binary_sensor.octopus_intelligent_slot', 'on') }}
-        icon: >
-          {% if is_state('binary_sensor.cheap_rate_active', 'on') %}
-            mdi:cash-multiple
-          {% else %}
-            mdi:cash-off
-          {% endif %}
-      
-      # Car is actively fast charging (>6.5kW)
-      - name: "Car Fast Charging"
-        unique_id: car_fast_charging
-        state: >
-          {{ states('sensor.myenergi_zappi_22300254_internal_load_ct1') | float(0) > 6500 }}
-        icon: >
-          {% if is_state('binary_sensor.car_fast_charging', 'on') %}
-            mdi:ev-station
-          {% else %}
-            mdi:ev-plug-type2
-          {% endif %}
-      
-      # V2L car is plugged in (for future Phase 2)
       - name: "V2L Car Connected"
-        unique_id: v2l_car_connected
+        device_class: connectivity
         state: >
-          {{ not is_state('switch.v2l', 'unavailable') }}
-        icon: >
-          {% if is_state('binary_sensor.v2l_car_connected', 'on') %}
-            mdi:car-electric
-          {% else %}
-            mdi:car-electric-outline
-          {% endif %}
-             
-binary_sensor:
-  - platform: template
-    sensors:
-      v2l_available:
-        friendly_name: "V2L Car Connected"
-        value_template: >
-          {{ not is_state('switch.v2l', 'unavailable') }}
+          {{ 
+            states('switch.v2l') in ['on', 'true', '1'] and 
+            states('switch.v2l') != 'unavailable'
+          }}
+        availability: >
+          {{ states('switch.v2l') not in ['unknown', 'unavailable'] }}
+      - name: "Home Occupied"
+        device_class: occupancy
+        state: >
+          {{ 
+            states('person.your_name') == 'home' or
+            states('device_tracker.phone1') == 'home' or
+            states('binary_sensor.living_room_motion') == 'on' or
+            is_state('binary_sensor.bedroom_occupancy', 'on')
+          }}
+        delay_off:
+          minutes: 15
+        availability: >
+          {{ 
+            states('person.your_name') not in ['unknown', 'unavailable'] or
+            states('device_tracker.phone1') not in ['unknown', 'unavailable']
+          }}
+

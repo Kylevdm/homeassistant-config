@@ -81,259 +81,196 @@
         brightness_pct: 100
       action: light.turn_on
   mode: restart
-  
-  
-# ========================================
-# PHASE 1: SOLIS-ONLY AUTOMATIONS
-# Install these NOW while waiting for ESP hardware
-# ========================================
-
-# 1. START CHARGING
-- id: 'solis_charging_start_phase1'
-alias: "Solis Charging - Start (Phase 1)"
-description: "Starts Solis charging when cheap rate begins"
-triggers:
-  - platform: state
-    entity_id: binary_sensor.cheap_rate_active
-    to: 'on'
-conditions:
-  - condition: numeric_state
-    entity_id: sensor.solisac_battery_soc
-    below: 95
-actions:
-  # Set Solis mode to Self-Use
-  - service: select.select_option
-    target:
-      entity_id: select.solisac_energy_storage_control_switch
-    data:
-      option: "Self-Use"
-  
-  # Set bulk charging current
-  - service: number.set_value
-    target:
-      entity_id: number.solisac_timed_charge_current
-    data:
-      value: 62.5
-  
-  # Set charge time slot
-  - service: number.set_value
-    target:
-      entity_id: number.solisac_timed_charge_start_hours
-    data:
-      value: "{{ now().hour }}"
-  
-  - service: number.set_value
-    target:
-      entity_id: number.solisac_timed_charge_start_minutes
-    data:
-      value: "{{ now().minute }}"
-  
-  - service: number.set_value
-    target:
-      entity_id: number.solisac_timed_charge_end_hours
-    data:
-      value: 5
-  
-  - service: number.set_value
-    target:
-      entity_id: number.solisac_timed_charge_end_minutes
-    data:
-      value: 30
-  
-  # Press update button
-  - service: button.press
-    target:
-      entity_id: button.solisac_update_charge_discharge_times
-
-# 2. PHASE TRANSITIONS
-- id: 'solis_phase_transition_phase1'
-alias: "Solis Charging - Phase Transitions (Phase 1)"
-description: "Changes Solis current when crossing SOC thresholds"
-triggers:
-  # Entering absorption phase (90% SOC)
-  - platform: numeric_state
-    entity_id: sensor.solisac_battery_soc
-    above: 89.5
-    below: 90.5
-    id: enter_absorption
-  
-  # Entering top balance phase (95% SOC)
-  - platform: numeric_state
-    entity_id: sensor.solisac_battery_soc
-    above: 94.5
-    below: 95.5
-    id: enter_top_balance
-conditions:
-  - condition: state
-    entity_id: binary_sensor.cheap_rate_active
-    state: 'on'
-actions:
-  - choose:
-      # ABSORPTION PHASE (90-95%)
-      - conditions:
-          - condition: trigger
-            id: enter_absorption
-        sequence:
-          - service: number.set_value
-            target:
-              entity_id: number.solisac_timed_charge_current
-            data:
-              value: 31
-          
-          - service: button.press
-            target:
-              entity_id: button.solisac_update_charge_discharge_times
-      
-      # TOP BALANCE PHASE (95-100%)
-      - conditions:
-          - condition: trigger
-            id: enter_top_balance
-        sequence:
-          # Continue at reduced rate for top balance
-          - service: number.set_value
-            target:
-              entity_id: number.solisac_timed_charge_current
-            data:
-              value: 15
-          
-          - service: button.press
-            target:
-              entity_id: button.solisac_update_charge_discharge_times
-
-# 3. STOP CHARGING
-- id: 'solis_charging_stop_phase1'
-alias: "Solis Charging - Stop (Phase 1)"
-description: "Stops charging when cheap rate ends or battery full"
-triggers:
-  - platform: state
-    entity_id: binary_sensor.cheap_rate_active
-    to: 'off'
-    id: slot_ended
-  
-  - platform: numeric_state
-    entity_id: sensor.solisac_battery_soc
-    above: 99.5
-    id: battery_full
-  
-  - platform: time
-    at: "05:15:00"
-    id: rest_period
-actions:
-  # Disable timed charging (set to 00:00-00:00)
-  - service: number.set_value
-    target:
-      entity_id: number.solisac_timed_charge_start_hours
-    data:
-      value: 0
-  
-  - service: number.set_value
-    target:
-      entity_id: number.solisac_timed_charge_start_minutes
-    data:
-      value: 0
-  
-  - service: number.set_value
-    target:
-      entity_id: number.solisac_timed_charge_end_hours
-    data:
-      value: 0
-  
-  - service: number.set_value
-    target:
-      entity_id: number.solisac_timed_charge_end_minutes
-    data:
-      value: 0
-  
-  - service: button.press
-    target:
-      entity_id: button.solisac_update_charge_discharge_times
-
-# 4. LOW BATTERY ALERT
-- id: 'battery_low_alert_phase1'
-alias: "Battery - Low SOC Alert (Phase 1)"
-description: "Notifies when battery reaches 40%"
-triggers:
-  - platform: numeric_state
-    entity_id: sensor.solisac_battery_soc
-    below: 40
-conditions:
-  - condition: state
-    entity_id: binary_sensor.cheap_rate_active
-    state: 'off'
-actions:
-  - service: notify.mobile_app_iphone_14
-    data:
-      title: "🔋 Battery Low"
-      message: "Home battery is at {{ states('sensor.solisac_battery_soc') }}%. Next cheap rate at 23:30."
-      data:
-        push:
-          sound: default
-          interruption-level: time-sensitive
-
-# 5. INTELLIGENT DISPATCHING
-- id: 'intelligent_dispatching_phase1'
-alias: "Solis Charging - Intelligent Dispatching (Phase 1)"
-description: "Updates charge times for Octopus Intelligent slots"
-triggers:
-  - platform: state
-    entity_id: binary_sensor.octopus_energy_a_cadd52b1_intelligent_dispatching
-    to: 'on'
-conditions:
-  - condition: numeric_state
-    entity_id: sensor.solisac_battery_soc
-    below: 95
-actions:
-  # Set current time as start
-  - service: number.set_value
-    target:
-      entity_id: number.solisac_timed_charge_start_hours
-    data:
-      value: "{{ now().hour }}"
-  
-  - service: number.set_value
-    target:
-      entity_id: number.solisac_timed_charge_start_minutes
-    data:
-      value: "{{ now().minute }}"
-  
-  # Intelligent slots typically 1-2 hours
-  - service: number.set_value
-    target:
-      entity_id: number.solisac_timed_charge_end_hours
-    data:
-      value: "{{ (now().hour + 2) % 24 }}"
-  
-  - service: number.set_value
-    target:
-      entity_id: number.solisac_timed_charge_end_minutes
-    data:
-      value: "{{ now().minute }}"
-  
-  - service: button.press
-    target:
-      entity_id: button.solisac_update_charge_discharge_times
-
-# 6. GRID OVERLOAD PROTECTION
-- id: 'grid_overload_protection_phase1'
-alias: "Grid - Overload Protection (Phase 1)"
-description: "Alerts if grid import exceeds safe limits"
-triggers:
-  - platform: numeric_state
-    entity_id: sensor.myenergi_69_stirtingale_road_eddi_power_grid
-    above: 18000
+- id: '1763942281419'
+  alias: dehumidifier on
+  description: ''
+  triggers:
+  - type: turned_on
+    device_id: 342ec8b0a2123dc4e53ea4b6b4d1b4de
+    entity_id: 83b7109bd9485a7dd1d0a6fb28dd6036
+    domain: binary_sensor
+    trigger: device
     for:
-      seconds: 10
-conditions:
-  - condition: state
-    entity_id: binary_sensor.cheap_rate_active
-    state: 'on'
-actions:
-  # Send warning (can't reduce Solis dynamically in Phase 1)
-  - service: notify.mobile_app_iphone_14
+      hours: 0
+      minutes: 0
+      seconds: 30
+  conditions: []
+  actions:
+  - action: switch.turn_on
+    metadata: {}
+    data: {}
+    target:
+      entity_id: switch.dehumidifier
+  mode: single
+- id: '1763942368541'
+  alias: dehumidifier off
+  description: ''
+  triggers:
+  - type: turned_off
+    device_id: 342ec8b0a2123dc4e53ea4b6b4d1b4de
+    entity_id: 83b7109bd9485a7dd1d0a6fb28dd6036
+    domain: binary_sensor
+    trigger: device
+    for:
+      hours: 0
+      minutes: 0
+      seconds: 30
+  conditions: []
+  actions:
+  - action: switch.turn_off
+    metadata: {}
+    data: {}
+    target:
+      entity_id: switch.dehumidifier
+  mode: single
+- id: '1764593732452'
+  alias: Toothbrush Battery Low
+  description: ''
+  triggers:
+  - type: battery_level
+    device_id: 9687fe55346ba13de25116970d06622e
+    entity_id: 2477a859a14281db0312eee36fc02c57
+    domain: sensor
+    trigger: device
+    below: 50
+    for:
+      hours: 0
+      minutes: 0
+      seconds: 0
+  conditions: []
+  actions:
+  - action: notify.mobile_app_iphone_14
+    metadata: {}
     data:
-      title: "⚠️ Grid Overload Warning"
-      message: "Grid import at {{ states('sensor.myenergi_69_stirtingale_road_eddi_power_grid') }}W. Check loads!"
-      data:
-        push:
-          sound: default
-              interruption-level: critical
+      message: Tooth Brush Battery <50%
+      title: Tooth Brush Battery Low
+  mode: single
+- id: '1765740242204'
+  alias: NSPanel Hall Configuration
+  description: ''
+  use_blueprint:
+    path: Blackymas/nspanel_blueprint.yaml
+    input:
+      nspanel_name: 473ffc6c8e021effceef3e52bfd2f00c
+      timezone: Europe/London (GMT0BST,M3.5.0/1,M10.5.0)
+      weather_entity: weather.home
+      outdoortemp: sensor.altherma_climatecontrol_outdoor_temperature
+      indoortemp: sensor.altherma_climatecontrol_room_temperature
+- id: '1765888185532'
+  alias: Home Occupation - Away
+  description: Set home_occupied flag off when both people have been away for 30 min
+  triggers:
+  - trigger: state
+    entity_id:
+    - person.kyle_van_der_merwe
+    - person.kelsey_hill
+    to: not_home
+    for:
+      minutes: 30
+  conditions:
+  - condition: state
+    entity_id: person.kyle_van_der_merwe
+    state: not_home
+    for:
+      minutes: 30
+  - condition: state
+    entity_id: person.kelsey_hill
+    state: not_home
+    for:
+      minutes: 30
+  actions:
+  - action: input_boolean.turn_off
+    target:
+      entity_id: input_boolean.home_occupied
+  mode: single
+- id: '1765888185533'
+  alias: Home Occupation - Home
+  description: Set home_occupied flag on as soon as either person arrives home
+  triggers:
+  - trigger: state
+    entity_id:
+    - person.kyle_van_der_merwe
+    - person.kelsey_hill
+    to: home
+  conditions: []
+  actions:
+  - action: input_boolean.turn_on
+    target:
+      entity_id: input_boolean.home_occupied
+  mode: single
+- id: '1766271551708'
+  alias: Solis on - off-peak ends (overnight)
+  description: Time-based - reliably turn Solis on at end of overnight cheap window
+  triggers:
+  - trigger: time
+    at: '05:30:00'
+  conditions: []
+  actions:
+  - action: select.select_option
+    target:
+      entity_id: select.solisac_power_switch
+    data:
+      option: 'On'
+  mode: single
+- id: '1766307656531'
+  alias: Solis off - off-peak starts (overnight)
+  description: Time-based - reliably turn Solis off at start of overnight cheap window
+  triggers:
+  - trigger: time
+    at: '23:30:00'
+  conditions: []
+  actions:
+  - action: select.select_option
+    target:
+      entity_id: select.solisac_power_switch
+    data:
+      option: 'Off'
+  mode: single
+- id: '1766307656532'
+  alias: Solis off - dispatch slot starts (daytime)
+  description: Turn Solis off when Octopus Intelligent dispatch begins during the day
+  triggers:
+  - trigger: state
+    entity_id: binary_sensor.octopus_energy_electricity_22l4386358_2200012282082_off_peak
+    to: 'on'
+  conditions:
+  - condition: time
+    after: '05:30:00'
+    before: '23:30:00'
+  actions:
+  - action: select.select_option
+    target:
+      entity_id: select.solisac_power_switch
+    data:
+      option: 'Off'
+  mode: single
+- id: '1766307656533'
+  alias: Solis on - dispatch slot ends (daytime)
+  description: Turn Solis back on when Octopus Intelligent dispatch ends during the day
+  triggers:
+  - trigger: state
+    entity_id: binary_sensor.octopus_energy_electricity_22l4386358_2200012282082_off_peak
+    to: 'off'
+  conditions:
+  - condition: time
+    after: '05:30:00'
+    before: '23:30:00'
+  actions:
+  - action: select.select_option
+    target:
+      entity_id: select.solisac_power_switch
+    data:
+      option: 'On'
+  mode: single
+- id: '1766357348123'
+  alias: Octopus Energy - Manual Intelligent Refresh
+  description: ''
+  use_blueprint:
+    path: BottlecapDave/octopus_energy_manual_intelligent_refresh.yaml
+    input:
+      intelligent_dispatches_data_last_retrieved_sensor: sensor.octopus_energy_00000000_0009_4000_8020_000000068b29_intelligent_dispatches_data_last_retrieved
+      intelligent_dispatches_sensor: binary_sensor.octopus_energy_00000000_0009_4000_8020_000000068b29_intelligent_dispatching
+      car_plugged_in_sensor: sensor.myenergi_zappi_22300254_plug_status
+      car_plugged_in_sensor_state:
+      - EV Connected
+      actions: []

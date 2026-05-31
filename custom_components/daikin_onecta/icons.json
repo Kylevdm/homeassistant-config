@@ -1,7 +1,25 @@
 {
   "entity": {
     "climate": {
-      "daikin_onecta": {
+      "leavingwatertemperature": {
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "none": "mdi:close-circle-outline"
+            }
+          }
+        }
+      },
+      "leavingwateroffset": {
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "none": "mdi:close-circle-outline"
+            }
+          }
+        }
+      },
+      "roomtemperature": {
         "state_attributes": {
           "fan_mode": {
             "state": {
