@@ -54,18 +54,24 @@ views:
             name: Solar p90 — optimistic
             suffix: " kWh"
 
-      - type: history-graph
-        title: Target SOC vs Actual SOC (7 days)
-        hours_to_show: 168
+      - type: statistics-graph
+        title: Target SOC vs Actual SOC (7 days, hourly mean)
+        days_to_show: 7
+        period: hour
+        stat_types:
+          - mean
         entities:
           - entity: sensor.charge_target_soc
             name: Target
-          - entity: sensor.battery_soc_filtered
-            name: Actual (de-spiked)
+          - entity: sensor.solisac_battery_soc
+            name: Actual (hourly mean)
 
-      - type: history-graph
-        title: Suggested charge current (compare to 62.5 A blanket)
-        hours_to_show: 168
+      - type: statistics-graph
+        title: Suggested charge current (vs 62.5 A blanket)
+        days_to_show: 7
+        period: hour
+        stat_types:
+          - mean
         entities:
           - entity: sensor.charge_target_current
 
