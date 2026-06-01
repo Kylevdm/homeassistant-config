@@ -24,6 +24,71 @@ input_boolean:
     name: Home Occupied
     icon: mdi:home-account
 
+# ── Charge optimisation (Phase 1, observe-only) ──────────────────────────────
+# Predicts consumption + solar surplus to size the overnight charge. These are
+# display/observation sensors only — nothing writes to the inverter yet.
+recorder:
+  purge_keep_days: 16          # 14-day statistics window needs >14 days of history
+
+input_number:
+  charge_capacity_kwh:
+    name: "Charge: Battery Capacity"
+    min: 1
+    max: 50
+    step: 0.01
+    unit_of_measurement: kWh
+    initial: 26.88
+    icon: mdi:battery
+  charge_min_soc:
+    name: "Charge: Minimum SOC"
+    min: 0
+    max: 100
+    step: 1
+    unit_of_measurement: "%"
+    initial: 20
+    icon: mdi:battery-low
+  charge_target_cap:
+    name: "Charge: Target SOC Cap"
+    min: 50
+    max: 100
+    step: 1
+    unit_of_measurement: "%"
+    initial: 90
+    icon: mdi:battery-high
+  charge_daytime_fraction:
+    name: "Charge: Daytime Load Fraction"
+    min: 0
+    max: 1
+    step: 0.05
+    initial: 0.45
+    icon: mdi:weather-sunny
+  charge_solar_haircut_k:
+    name: "Charge: Solar Haircut k"
+    min: 0
+    max: 1
+    step: 0.05
+    initial: 1.0
+    icon: mdi:scissors-cutting
+
+input_select:
+  charge_balance_day:
+    name: "Charge: Weekly Balance Day"
+    options:
+      - Monday
+      - Tuesday
+      - Wednesday
+      - Thursday
+      - Friday
+      - Saturday
+      - Sunday
+    initial: Sunday
+    icon: mdi:calendar-star
+
+utility_meter:
+  house_consumption_daily:
+    source: sensor.house_consumption_energy
+    cycle: daily
+
 my:
 
 
@@ -35,6 +100,27 @@ sensor:
       - sensor.0xa4c138fb6e5add12_temperature
       - sensor.th_01_temperature
       - sensor.0xa4c138f24e1cef1e_temperature
+
+  # Riemann sum of true house load (W) -> cumulative kWh.
+  # home_consumption includes heat pump + battery charging, excludes EV.
+  - platform: integration
+    name: "House Consumption Energy"
+    unique_id: house_consumption_energy
+    source: sensor.myenergi_bath_zappi_master_home_consumption
+    method: trapezoidal
+    unit_prefix: k
+    unit_time: h
+    round: 3
+
+  # 14-day trailing mean house load (W); ×24/1000 -> predicted kWh/day.
+  - platform: statistics
+    name: "House Load Mean Power 14d"
+    unique_id: house_load_mean_power_14d
+    entity_id: sensor.myenergi_bath_zappi_master_home_consumption
+    state_characteristic: mean
+    max_age:
+      days: 14
+    sampling_size: 25000
 
 template:
   - sensor:
@@ -72,6 +158,89 @@ template:
           {% else %}
             mdi:battery
           {% endif %}
+
+      # ── Charge optimisation target calc (observe-only) ──────────────────
+      # Predicted whole-day house consumption from the 14-day mean load.
+      - name: "Predicted Consumption Tomorrow"
+        unique_id: predicted_consumption_tomorrow
+        unit_of_measurement: "kWh"
+        device_class: energy
+        state_class: measurement
+        state: >
+          {{ (states('sensor.house_load_mean_power_14d') | float(0) * 24 / 1000) | round(2) }}
+        availability: >
+          {{ has_value('sensor.house_load_mean_power_14d') }}
+
+      # Portion of consumption falling in solar hours (offsets solar surplus).
+      - name: "Daytime Load Estimate"
+        unique_id: daytime_load_estimate
+        unit_of_measurement: "kWh"
+        device_class: energy
+        state_class: measurement
+        state: >
+          {{ (states('sensor.predicted_consumption_tomorrow') | float(0)
+              * states('input_number.charge_daytime_fraction') | float(0.45)) | round(2) }}
+
+      # Free solar we expect to need to STORE = pessimistic (p10) forecast - daytime load.
+      - name: "Solar Surplus Forecast"
+        unique_id: solar_surplus_forecast
+        unit_of_measurement: "kWh"
+        device_class: energy
+        state_class: measurement
+        state: >
+          {% set solar = state_attr('sensor.solcast_pv_forecast_forecast_tomorrow', 'estimate10') | float(0) %}
+          {% set daytime = states('sensor.daytime_load_estimate') | float(0) %}
+          {{ [0, (solar - daytime)] | max | round(2) }}
+
+      # Overnight charge target: reserve headroom for confident solar, capped at
+      # the configured ceiling; 100% on the weekly balance day. Biased high.
+      - name: "Charge Target SOC"
+        unique_id: charge_target_soc
+        unit_of_measurement: "%"
+        state_class: measurement
+        state: >
+          {% set cap = states('input_number.charge_target_cap') | float(90) %}
+          {% set minsoc = states('input_number.charge_min_soc') | float(20) %}
+          {% set capacity = states('input_number.charge_capacity_kwh') | float(26.88) %}
+          {% set k = states('input_number.charge_solar_haircut_k') | float(1) %}
+          {% set surplus = states('sensor.solar_surplus_forecast') | float(0) %}
+          {% if now().strftime('%A') == states('input_select.charge_balance_day') %}
+            100
+          {% else %}
+            {% set raw = 100 - (k * surplus / capacity * 100) %}
+            {{ [[raw, cap] | min, minsoc] | max | round(0) }}
+          {% endif %}
+        icon: mdi:battery-charging-medium
+
+      # kWh needed to reach target from current SOC (reliable Modbus SOC).
+      - name: "Charge Energy Needed"
+        unique_id: charge_energy_needed_kwh
+        unit_of_measurement: "kWh"
+        device_class: energy
+        state_class: measurement
+        state: >
+          {% set target = states('sensor.charge_target_soc') | float(0) %}
+          {% set cur = states('sensor.solisac_battery_soc') | float(0) %}
+          {% set capacity = states('input_number.charge_capacity_kwh') | float(26.88) %}
+          {{ [0, (target - cur) / 100 * capacity] | max | round(2) }}
+        availability: >
+          {{ has_value('sensor.solisac_battery_soc') }}
+
+      # DISPLAY ONLY: the timed-charge current the future automation WOULD set
+      # to hit the target over the fixed 6h window (23:30-05:30). Clamp 0-62.5 A.
+      - name: "Charge Target Current"
+        unique_id: charge_target_current_a
+        unit_of_measurement: "A"
+        device_class: current
+        state_class: measurement
+        state: >
+          {% set need = states('sensor.charge_energy_needed') | float(0) %}
+          {% set v = states('sensor.solisac_battery_voltage') | float(52) %}
+          {% if v <= 0 %}{% set v = 52 %}{% endif %}
+          {% set a = need * 1000 / (v * 6) %}
+          {{ [[a, 62.5] | min, 0] | max | round(1) }}
+        availability: >
+          {{ has_value('sensor.solisac_battery_voltage') }}
   - binary_sensor:
       - name: "V2L Car Connected"
         device_class: connectivity
