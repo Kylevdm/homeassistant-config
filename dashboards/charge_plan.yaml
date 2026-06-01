@@ -1,0 +1,157 @@
+title: Charge Plan
+views:
+  - title: Plan
+    path: plan
+    icon: mdi:battery-clock
+    cards:
+      - type: gauge
+        entity: sensor.charge_target_soc
+        name: Tonight's Target SOC
+        unit: "%"
+        min: 0
+        max: 100
+        needle: true
+        severity:
+          green: 80
+          yellow: 50
+          red: 20
+
+      - type: entities
+        title: Tonight's Charge Plan
+        state_color: true
+        entities:
+          - entity: sensor.charge_target_soc
+            name: Target SOC
+          - entity: sensor.solisac_battery_soc
+            name: Current SOC
+          - entity: sensor.charge_energy_needed
+            name: Energy Needed
+          - entity: sensor.charge_target_current
+            name: Suggested Charge Current
+          - entity: number.solisac_timed_charge_current
+            name: Currently Set Current
+          - type: section
+            label: Forecast inputs
+          - entity: sensor.predicted_consumption_tomorrow
+            name: Predicted Consumption (tomorrow)
+          - entity: sensor.daytime_load_estimate
+            name: Daytime Load Estimate
+          - entity: sensor.solar_surplus_forecast
+            name: Solar Surplus (reserved as headroom)
+          - type: attribute
+            entity: sensor.solcast_pv_forecast_forecast_tomorrow
+            attribute: estimate10
+            name: Solar p10 — pessimistic (used)
+            suffix: " kWh"
+          - type: attribute
+            entity: sensor.solcast_pv_forecast_forecast_tomorrow
+            attribute: estimate
+            name: Solar p50 — median
+            suffix: " kWh"
+          - type: attribute
+            entity: sensor.solcast_pv_forecast_forecast_tomorrow
+            attribute: estimate90
+            name: Solar p90 — optimistic
+            suffix: " kWh"
+
+      - type: history-graph
+        title: Target SOC vs Actual SOC (7 days)
+        hours_to_show: 168
+        entities:
+          - entity: sensor.charge_target_soc
+            name: Target
+          - entity: sensor.solisac_battery_soc
+            name: Actual
+
+      - type: history-graph
+        title: Suggested charge current (compare to 62.5 A blanket)
+        hours_to_show: 168
+        entities:
+          - entity: sensor.charge_target_current
+
+  - title: Consumption
+    path: consumption
+    icon: mdi:home-lightning-bolt
+    cards:
+      - type: glance
+        title: Consumption
+        columns: 3
+        entities:
+          - entity: sensor.house_consumption_daily
+            name: Today
+          - entity: sensor.predicted_consumption_tomorrow
+            name: Predicted
+          - entity: sensor.house_load_mean_power_14d
+            name: 14d Mean
+
+      - type: entities
+        title: Metering
+        entities:
+          - entity: sensor.house_consumption_energy
+            name: Cumulative (Riemann)
+          - entity: sensor.house_consumption_daily
+            name: Daily Total
+          - entity: sensor.house_load_mean_power_14d
+            name: 14-day Mean Power
+          - entity: sensor.predicted_consumption_tomorrow
+            name: Predicted Tomorrow
+
+      - type: history-graph
+        title: Predicted vs Actual Daily Consumption (14 days)
+        hours_to_show: 336
+        entities:
+          - entity: sensor.predicted_consumption_tomorrow
+            name: Predicted
+          - entity: sensor.house_consumption_daily
+            name: Actual (today so far)
+
+      - type: history-graph
+        title: House Load — instantaneous (48 h)
+        hours_to_show: 48
+        entities:
+          - entity: sensor.myenergi_bath_zappi_master_home_consumption
+            name: House Load
+
+  - title: Settings
+    path: settings
+    icon: mdi:tune
+    cards:
+      - type: entities
+        title: Tunable Parameters
+        entities:
+          - entity: input_number.charge_capacity_kwh
+            name: Battery Capacity
+          - entity: input_number.charge_min_soc
+            name: Minimum SOC
+          - entity: input_number.charge_target_cap
+            name: Target SOC Cap
+          - entity: input_number.charge_daytime_fraction
+            name: Daytime Load Fraction
+          - entity: input_number.charge_solar_haircut_k
+            name: Solar Haircut k
+          - entity: input_select.charge_balance_day
+            name: Weekly Balance Day
+
+      - type: markdown
+        content: >
+          ## How it works (Phase 1 — observe only)
+
+
+          **Nothing is automated yet.** These sensors show what a future automation
+          *would* do, so the numbers can be validated against reality first.
+
+
+          - **Target SOC** = *Target SOC Cap* (90%), reduced by the solar headroom
+            we're confident about — or **100%** on the *Weekly Balance Day* (LFP balancing).
+
+          - **Solar Surplus** = pessimistic solar forecast (Solcast **p10**) − daytime load.
+            Only solar we're >76% sure of reserves battery headroom — biased toward
+            over-charging at 7p rather than risking 29p peak import.
+
+          - **Suggested Charge Current** = the value a future automation would write to
+            `number.solisac_timed_charge_current` to reach the target over the fixed
+            23:30–05:30 window (single-variable change, gentle on the Solis).
+
+          - **Daytime Load Fraction**: share of daily consumption during solar hours.
+
+          - **Haircut k**: 1.0 = reserve all confident surplus; lower = charge more.

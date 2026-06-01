@@ -19,6 +19,18 @@ automation: !include automations.yaml
 script: !include scripts.yaml
 scene: !include scenes.yaml
 
+# Keep the main UI dashboards in storage mode; add the git-tracked Charge Plan
+# dashboard from YAML (built-in cards only, no custom-card resources needed).
+lovelace:
+  mode: storage
+  dashboards:
+    charge-plan:
+      mode: yaml
+      title: Charge Plan
+      icon: mdi:battery-clock
+      show_in_sidebar: true
+      filename: dashboards/charge_plan.yaml
+
 input_boolean:
   home_occupied:
     name: Home Occupied
