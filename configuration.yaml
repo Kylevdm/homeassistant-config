@@ -134,6 +134,18 @@ sensor:
       days: 14
     sampling_size: 25000
 
+  # De-spiked battery SOC: the Modbus SOC occasionally reports spurious 100%
+  # reads. The outlier filter rejects values >15% from the recent median so
+  # graphs and the charge calc don't bounce.
+  - platform: filter
+    name: "Battery SOC Filtered"
+    unique_id: battery_soc_filtered
+    entity_id: sensor.solisac_battery_soc
+    filters:
+      - filter: outlier
+        window_size: 10
+        radius: 15.0
+
 template:
   - sensor:
       # Current grid import (positive) or export (negative) in Watts
@@ -232,11 +244,11 @@ template:
         state_class: measurement
         state: >
           {% set target = states('sensor.charge_target_soc') | float(0) %}
-          {% set cur = states('sensor.solisac_battery_soc') | float(0) %}
+          {% set cur = states('sensor.battery_soc_filtered') | float(states('sensor.solisac_battery_soc') | float(0)) %}
           {% set capacity = states('input_number.charge_capacity_kwh') | float(26.88) %}
           {{ [0, (target - cur) / 100 * capacity] | max | round(2) }}
         availability: >
-          {{ has_value('sensor.solisac_battery_soc') }}
+          {{ has_value('sensor.solisac_battery_soc') or has_value('sensor.battery_soc_filtered') }}
 
       # DISPLAY ONLY: the timed-charge current the future automation WOULD set
       # to hit the target over the fixed 6h window (23:30-05:30). Clamp 0-62.5 A.

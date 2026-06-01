@@ -22,8 +22,8 @@ views:
         entities:
           - entity: sensor.charge_target_soc
             name: Target SOC
-          - entity: sensor.solisac_battery_soc
-            name: Current SOC
+          - entity: sensor.battery_soc_filtered
+            name: Current SOC (filtered)
           - entity: sensor.charge_energy_needed
             name: Energy Needed
           - entity: sensor.charge_target_current
@@ -60,8 +60,8 @@ views:
         entities:
           - entity: sensor.charge_target_soc
             name: Target
-          - entity: sensor.solisac_battery_soc
-            name: Actual
+          - entity: sensor.battery_soc_filtered
+            name: Actual (de-spiked)
 
       - type: history-graph
         title: Suggested charge current (compare to 62.5 A blanket)
