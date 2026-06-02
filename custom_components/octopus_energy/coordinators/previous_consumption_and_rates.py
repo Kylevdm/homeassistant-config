@@ -11,10 +11,9 @@ from homeassistant.helpers.update_coordinator import (
 from homeassistant.helpers import storage
 
 from ..const import (
-  CONFIG_MAIN_INTELLIGENT_RATE_MODE_PENDING_AND_STARTED_DISPATCHES,
+  CONFIG_MAIN_INTELLIGENT_RATE_MODE_PLANNED_AND_STARTED_DISPATCHES,
   COORDINATOR_REFRESH_IN_SECONDS,
   DATA_ACCOUNT,
-  DATA_INTELLIGENT_DEVICE,
   DATA_PREVIOUS_CONSUMPTION_COORDINATOR_KEY,
   DOMAIN,
   DATA_INTELLIGENT_DISPATCHES,
@@ -52,6 +51,7 @@ class PreviousConsumptionCoordinatorResult(BaseCoordinatorResult):
   standing_charge: float
   historic_weekday_consumption: list
   historic_weekend_consumption: list
+  latest_consumption_timestamp: datetime | None
 
   def __init__(self,
                last_evaluated: datetime,
@@ -61,6 +61,7 @@ class PreviousConsumptionCoordinatorResult(BaseCoordinatorResult):
                standing_charge,
                historic_weekday_consumption: list = None,
                historic_weekend_consumption: list = None,
+               latest_consumption_timestamp: datetime | None = None,
                last_error: Exception | None = None):
     super().__init__(last_evaluated, request_attempts, REFRESH_RATE_IN_MINUTES_PREVIOUS_CONSUMPTION, None, last_error)
     self.consumption = consumption
@@ -68,6 +69,7 @@ class PreviousConsumptionCoordinatorResult(BaseCoordinatorResult):
     self.standing_charge = standing_charge
     self.historic_weekday_consumption = historic_weekday_consumption
     self.historic_weekend_consumption = historic_weekend_consumption
+    self.latest_consumption_timestamp = latest_consumption_timestamp
 
 def contains_consumption(consumptions: list, current_consumption):
   for consumption in consumptions:
@@ -207,7 +209,8 @@ async def async_enhance_with_historic_consumption(
     data.rates,
     data.standing_charge,
     historic_weekday_consumptions,
-    historic_weekend_consumptions
+    historic_weekend_consumptions,
+    data.latest_consumption_timestamp
   )
 
 def get_latest_day(consumption_data: list | None):
@@ -246,10 +249,9 @@ async def async_fetch_consumption_and_rates(
   is_electricity: bool,
   is_smart_meter: bool,
   fire_event: Callable[[str, "dict[str, Any]"], None],
-  intelligent_device: IntelligentDevice | None = None,
-  intelligent_dispatches: IntelligentDispatches | None = None,
+  dispatches_results: dict[str, IntelligentDispatchesCoordinatorResult] = None,
   tariff_override: Tariff = None,
-  intelligent_rate_mode: str = CONFIG_MAIN_INTELLIGENT_RATE_MODE_PENDING_AND_STARTED_DISPATCHES
+  intelligent_rate_mode: str = CONFIG_MAIN_INTELLIGENT_RATE_MODE_PLANNED_AND_STARTED_DISPATCHES
 
 ):
   """Fetch the previous consumption and rates"""
@@ -262,11 +264,13 @@ async def async_fetch_consumption_and_rates(
       current >= previous_data.next_refresh):
     rate_data = None
     standing_charge = None
+    latest_consumption_timestamp = previous_data.latest_consumption_timestamp if previous_data is not None else None
     
     try:
       if (is_electricity == True):
-        consumption_data = await client.async_get_electricity_consumption(identifier, serial_number, page_size=52)
-        consumption_data = get_latest_day(consumption_data)
+        captured_consumption_data = await client.async_get_electricity_consumption(identifier, serial_number, page_size=52)
+        latest_consumption_timestamp = captured_consumption_data[-1]["end"] if captured_consumption_data is not None and len(captured_consumption_data) > 0 else latest_consumption_timestamp
+        consumption_data = get_latest_day(captured_consumption_data)
 
         if consumption_data is not None:
           period_from = consumption_data[0]["start"]
@@ -278,9 +282,19 @@ async def async_fetch_consumption_and_rates(
             return previous_data
 
           # We'll calculate the wrong value if we don't have our intelligent dispatches
-          if is_intelligent_product(tariff.product) and intelligent_device is not None and intelligent_dispatches is None:
-            _LOGGER.debug("Dispatches not available for intelligent tariff. Using existing rate information")
-            return previous_data
+          if is_intelligent_product(tariff.product):
+            missing_dispatches = False
+            if dispatches_results is None:
+              missing_dispatches = True
+            else:
+              for item in dispatches_results.values():
+                if item is None or item.dispatches is None:
+                  missing_dispatches = True
+                  break
+
+            if missing_dispatches:
+              _LOGGER.debug("Dispatches not available for intelligent tariff. Using existing rate information")
+              return previous_data
           
           if (previous_data is not None and 
               previous_data.rates is not None and 
@@ -295,15 +309,21 @@ async def async_fetch_consumption_and_rates(
               client.async_get_electricity_standing_charge(tariff.product, tariff.code, period_from, period_to)
             )
 
-          if intelligent_dispatches is not None:
-            _LOGGER.debug(f"Adjusting rate data based on intelligent tariff; dispatches: {intelligent_dispatches.to_dict()}")
-            rate_data = adjust_intelligent_rates(rate_data,
-                                                  intelligent_dispatches.planned,
-                                                  intelligent_dispatches.started,
-                                                  intelligent_rate_mode)
+          if dispatches_results is not None:
+            for key, item in dispatches_results.items():
+              if item is not None and item.dispatches is not None:
+                rate_data = adjust_intelligent_rates(rate_data,
+                                                    item.dispatches.planned,
+                                                    item.dispatches.started,
+                                                    intelligent_rate_mode)
+            
+                _LOGGER.debug(f"Rates adjusted: {rate_data}; device id: {key} dispatches: {item.dispatches.to_dict()}")
+        else:
+          _LOGGER.debug(f"No previous consumption data retrieved for electricity {identifier}/{serial_number} - start: {captured_consumption_data[0]["start"] if captured_consumption_data is not None and len(captured_consumption_data) > 0 else ''}; end: {captured_consumption_data[-1]["end"] if captured_consumption_data is not None and len(captured_consumption_data) > 0 else ''}; total: {len(captured_consumption_data) if captured_consumption_data is not None else 0}")
       else:
-        consumption_data = await client.async_get_gas_consumption(identifier, serial_number, page_size=52)
-        consumption_data = get_latest_day(consumption_data)
+        captured_consumption_data = await client.async_get_gas_consumption(identifier, serial_number, page_size=52)
+        latest_consumption_timestamp = captured_consumption_data[-1]["end"] if captured_consumption_data is not None and len(captured_consumption_data) > 0 else latest_consumption_timestamp
+        consumption_data = get_latest_day(captured_consumption_data)
 
         if consumption_data is not None:
           period_from = consumption_data[0]["start"]
@@ -326,6 +346,8 @@ async def async_fetch_consumption_and_rates(
               client.async_get_gas_rates(tariff.product, tariff.code, period_from, period_to),
               client.async_get_gas_standing_charge(tariff.product, tariff.code, period_from, period_to)
             )
+        else:
+          _LOGGER.debug(f"No previous consumption data retrieved for gas {identifier}/{serial_number} - start: {captured_consumption_data[0]["start"] if captured_consumption_data is not None and len(captured_consumption_data) > 0 else ''}; end: {captured_consumption_data[-1]["end"] if captured_consumption_data is not None and len(captured_consumption_data) > 0 else ''}; total: {len(captured_consumption_data) if captured_consumption_data is not None else 0}")
       
       _LOGGER.debug(f"{'electricity' if is_electricity else 'gas'} {identifier}/{serial_number}: consumption_data: {len(consumption_data) if consumption_data is not None else None}; rate_data: {len(rate_data) if rate_data is not None else None}; standing_charge: {standing_charge}")
       if consumption_data is not None and len(consumption_data) >= MINIMUM_CONSUMPTION_DATA_LENGTH and rate_data is not None and len(rate_data) > 0 and standing_charge is not None:
@@ -349,7 +371,8 @@ async def async_fetch_consumption_and_rates(
           rate_data,
           standing_charge["value_inc_vat"],
           None,
-          None
+          None,
+          latest_consumption_timestamp
         )
     
       
@@ -360,7 +383,8 @@ async def async_fetch_consumption_and_rates(
         previous_data.rates if previous_data is not None else None,
         previous_data.standing_charge if previous_data is not None else None,
         previous_data.historic_weekday_consumption if previous_data is not None else None,
-        previous_data.historic_weekend_consumption if previous_data is not None else None
+        previous_data.historic_weekend_consumption if previous_data is not None else None,
+        latest_consumption_timestamp
       )
     except Exception as e:
       if isinstance(e, ApiException) == False:
@@ -376,6 +400,7 @@ async def async_fetch_consumption_and_rates(
           previous_data.standing_charge,
           previous_data.historic_weekday_consumption,
           previous_data.historic_weekend_consumption,
+          latest_consumption_timestamp,
           last_error=e
         )
 
@@ -391,6 +416,7 @@ async def async_fetch_consumption_and_rates(
           None,
           None,
           None,
+          latest_consumption_timestamp,
           last_error=e
         )
         _LOGGER.warning(f"Failed to retrieve previous consumption data for {'electricity' if is_electricity else 'gas'} {identifier}/{serial_number}. See diagnostics sensor for more information.. Exception: {e}")
@@ -442,9 +468,7 @@ async def async_create_previous_consumption_and_rates_coordinator(
     """Fetch data from API endpoint."""
     account_result = hass.data[DOMAIN][account_id][DATA_ACCOUNT] if DATA_ACCOUNT in hass.data[DOMAIN][account_id] else None
     account_info = account_result.account if account_result is not None else None
-    intelligent_result: IntelligentDeviceCoordinatorResult = hass.data[DOMAIN][account_id][DATA_INTELLIGENT_DEVICE] if DATA_INTELLIGENT_DEVICE in hass.data[DOMAIN][account_id] else None
-    intelligent_device: IntelligentDevice = intelligent_result.device if intelligent_result is not None else None
-    dispatches: IntelligentDispatchesCoordinatorResult = hass.data[DOMAIN][account_id][DATA_INTELLIGENT_DISPATCHES] if DATA_INTELLIGENT_DISPATCHES in hass.data[DOMAIN][account_id] else None
+    dispatches: dict[str, IntelligentDispatchesCoordinatorResult] = hass.data[DOMAIN][account_id][DATA_INTELLIGENT_DISPATCHES] if DATA_INTELLIGENT_DISPATCHES in hass.data[DOMAIN][account_id] else None
     previous_data = hass.data[DOMAIN][account_id][previous_consumption_data_key] if previous_consumption_data_key in hass.data[DOMAIN][account_id] else None
     current = utcnow()
 
@@ -458,8 +482,7 @@ async def async_create_previous_consumption_and_rates_coordinator(
       is_electricity,
       is_smart_meter,
       hass.bus.async_fire,
-      intelligent_device,
-      dispatches.dispatches if dispatches is not None else None,
+      dispatches,
       tariff_override,
       intelligent_rate_mode
     )

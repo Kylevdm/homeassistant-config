@@ -1,0 +1,1424 @@
+"""Definitions for the Elegoo Printer Integration."""
+
+from collections.abc import Callable, Coroutine
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Any
+
+from homeassistant.components.binary_sensor import (
+    BinarySensorDeviceClass,
+    BinarySensorEntityDescription,
+)
+from homeassistant.components.button import ButtonEntityDescription
+from homeassistant.components.fan import FanEntityDescription, FanEntityFeature
+from homeassistant.components.light import LightEntityDescription
+from homeassistant.components.number import NumberEntityDescription, NumberMode
+from homeassistant.components.select import SelectEntityDescription
+from homeassistant.components.sensor import SensorEntityDescription
+from homeassistant.components.sensor.const import SensorDeviceClass, SensorStateClass
+from homeassistant.const import (
+    PERCENTAGE,
+    EntityCategory,
+    UnitOfInformation,
+    UnitOfLength,
+    UnitOfTemperature,
+    UnitOfTime,
+)
+from homeassistant.helpers.typing import StateType
+
+from custom_components.elegoo_printer.websocket.client import ElegooPrinterClient
+
+from .sdcp.models.ams import AMSTray
+from .sdcp.models.enums import (
+    ElegooErrorStatusReason,
+    ElegooMachineStatus,
+    ElegooPrintError,
+    ElegooPrintStatus,
+)
+from .sdcp.models.printer import PrinterData
+
+
+def _has_valid_current_coords(printer_data: PrinterData) -> bool:
+    """Check if current_coord is valid."""
+    if (
+        not printer_data
+        or not printer_data.status
+        or printer_data.status.current_coord is None
+    ):
+        return False
+    coords = printer_data.status.current_coord.split(",")
+    return len(coords) == 3  # noqa: PLR2004
+
+
+def _get_current_coord_value(printer_data: PrinterData, index: int) -> float | None:
+    """Get a coordinate value from current_coord."""
+    if not _has_valid_current_coords(printer_data):
+        return None
+    try:
+        return float(printer_data.status.current_coord.split(",")[index])
+    except (ValueError, IndexError):
+        return None
+
+
+def _get_active_filament_color(printer_data: PrinterData) -> str | None:
+    """Get the hex color of the currently active filament."""
+    if not printer_data or not printer_data.ams_status:
+        return None
+
+    active = printer_data.ams_status.ams_current_enabled
+    if not active:
+        return None
+
+    ams_id = active.get("AmsId")
+    tray_id = active.get("TrayId")
+
+    for box in printer_data.ams_status.ams_boxes:
+        if box.id == ams_id:
+            for tray in box.tray_list:
+                if tray.id == tray_id:
+                    return tray.filament_color
+    return None
+
+
+def _get_active_filament_attributes(printer_data: PrinterData) -> dict:
+    """Get attributes for the active filament."""
+    if not printer_data or not printer_data.ams_status:
+        return {}
+
+    active = printer_data.ams_status.ams_current_enabled
+    if not active:
+        return {}
+
+    ams_id = active.get("AmsId")
+    tray_id = active.get("TrayId")
+
+    for box in printer_data.ams_status.ams_boxes:
+        if box.id == ams_id:
+            for tray in box.tray_list:
+                if tray.id == tray_id:
+                    return {
+                        "color": tray.filament_color,
+                        "type": tray.filament_type,
+                        "name": tray.filament_name,
+                        "brand": tray.brand,
+                        "ams_id": ams_id,
+                        "tray_id": tray_id,
+                        "status": active.get("Status"),
+                        "temperature_range": (
+                            f"{tray.min_nozzle_temp}-{tray.max_nozzle_temp}°C"
+                            if tray.min_nozzle_temp > 0 and tray.max_nozzle_temp > 0
+                            else None
+                        ),
+                    }
+    return {}
+
+
+def _get_canvas_tray(printer_data: PrinterData, index: int) -> AMSTray | None:
+    """Get Canvas tray object for a 0-based slot index, or None."""
+    if not printer_data or not printer_data.ams_status:
+        return None
+    tray_id = str(index).zfill(2)
+    for box in printer_data.ams_status.ams_boxes:
+        if box.id == "0":
+            for tray in box.tray_list:
+                if tray.id == tray_id:
+                    return tray
+    return None
+
+
+def _get_slot_color(printer_data: PrinterData, index: int) -> str | None:
+    """Get hex color for a slot. Proxy color_map first, Canvas fallback."""
+    if not printer_data:
+        return None
+    if printer_data.gcode_filament_data:
+        for entry in printer_data.gcode_filament_data.color_map:
+            if entry.get("t") == index:
+                color = entry.get("color")
+                if color:
+                    return color
+    tray = _get_canvas_tray(printer_data, index)
+    return tray.filament_color if tray else None
+
+
+def _get_slot_name(printer_data: PrinterData, index: int) -> str | None:
+    """Get filament name for a slot. Proxy names -> color_map -> Canvas."""
+    if not printer_data:
+        return None
+    if printer_data.gcode_filament_data:
+        data = printer_data.gcode_filament_data
+        if index < len(data.filament_names):
+            return data.filament_names[index]
+        for entry in data.color_map:
+            if entry.get("t") == index:
+                name = entry.get("name")
+                if name:
+                    return name
+    tray = _get_canvas_tray(printer_data, index)
+    return tray.filament_name if tray and tray.filament_name else None
+
+
+def _get_slot_filament_type(printer_data: PrinterData, index: int) -> str | None:
+    """Get filament type for a slot (e.g. 'PLA'). Canvas is the source."""
+    if not printer_data:
+        return None
+    tray = _get_canvas_tray(printer_data, index)
+    return tray.filament_type if tray and tray.filament_type else None
+
+
+def _normalize_filament_diameter_mm(value: Any) -> float | str | None:
+    """Coerce diameter to float for consistent entity attributes when possible."""
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, int | float):
+        return float(value)
+    if isinstance(value, str):
+        stripped = value.strip()
+        if not stripped:
+            return None
+        try:
+            return float(stripped)
+        except ValueError:
+            return stripped
+    return None
+
+
+def _get_slot_attributes(printer_data: PrinterData, index: int) -> dict:
+    """Get non-duplicate metadata attributes for A{n} Attributes sensor."""
+    if not printer_data:
+        return {}
+    attrs: dict[str, Any] = {}
+    tray = _get_canvas_tray(printer_data, index)
+
+    if tray:
+        if tray.brand:
+            attrs["brand"] = tray.brand
+        attrs["source"] = tray.from_source
+        tray_diameter = _normalize_filament_diameter_mm(tray.filament_diameter)
+        if tray_diameter is not None:
+            attrs["diameter"] = tray_diameter
+        if tray.min_nozzle_temp > 0 and tray.max_nozzle_temp > 0:
+            attrs["nozzle_temp_range"] = (
+                f"{tray.min_nozzle_temp}-{tray.max_nozzle_temp}°C"
+            )
+        if tray.min_bed_temp > 0 and tray.max_bed_temp > 0:
+            attrs["bed_temp_range"] = f"{tray.min_bed_temp}-{tray.max_bed_temp}°C"
+        attrs["enabled"] = tray.enabled
+
+    if printer_data.gcode_filament_data:
+        data = printer_data.gcode_filament_data
+        if index < len(data.per_slot_density):
+            attrs["density"] = data.per_slot_density[index]
+        if index < len(data.per_slot_diameter):
+            proxy_diameter = _normalize_filament_diameter_mm(
+                data.per_slot_diameter[index]
+            )
+            if proxy_diameter is not None:
+                attrs["diameter"] = proxy_diameter
+        if index < len(data.per_slot_cost):
+            attrs["cost"] = data.per_slot_cost[index]
+
+    return attrs
+
+
+def _get_slot_grams(printer_data: PrinterData, index: int) -> float | None:
+    """Get filament weight in grams for a slot."""
+    if not printer_data or not printer_data.gcode_filament_data:
+        return None
+    data = printer_data.gcode_filament_data
+    if index >= len(data.per_slot_grams):
+        return None
+    return data.per_slot_grams[index]
+
+
+def _get_slot_cm3(printer_data: PrinterData, index: int) -> float | None:
+    """Get filament volume in cubic centimeters for a slot."""
+    if not printer_data or not printer_data.gcode_filament_data:
+        return None
+    data = printer_data.gcode_filament_data
+    if index >= len(data.per_slot_cm3):
+        return None
+    return data.per_slot_cm3[index]
+
+
+def _get_slot_mm(printer_data: PrinterData, index: int) -> float | None:
+    """Get filament length in millimeters for a slot."""
+    if not printer_data or not printer_data.gcode_filament_data:
+        return None
+    data = printer_data.gcode_filament_data
+    if index >= len(data.per_slot_mm):
+        return None
+    return data.per_slot_mm[index]
+
+
+async def _async_noop(*_: Any, **__: Any) -> None:
+    """Async no-op function."""
+
+
+@dataclass
+class ElegooPrinterSensorEntityDescriptionMixin:
+    """Mixin for required keys."""
+
+    value_fn: Callable[..., datetime | StateType]
+
+
+@dataclass
+class ElegooPrinterSensorEntityDescription(
+    ElegooPrinterSensorEntityDescriptionMixin, SensorEntityDescription
+):
+    """Sensor entity description for Elegoo Printers."""
+
+    available_fn: Callable[..., bool] = lambda printer_data: printer_data
+    exists_fn: Callable[..., bool] = lambda _: True
+    extra_attributes: Callable[..., dict] = lambda _: {}
+    icon_fn: Callable[..., str] = lambda _: "mdi:eye"
+
+
+@dataclass
+class ElegooPrinterBinarySensorEntityDescription(
+    ElegooPrinterSensorEntityDescriptionMixin, BinarySensorEntityDescription
+):
+    """Binary sensor entity description for Elegoo Printers."""
+
+    available_fn: Callable[..., bool] = lambda printer_data: printer_data
+    exists_fn: Callable[..., bool] = lambda _: True
+    extra_attributes: Callable[..., dict] = lambda _: {}
+    icon_fn: Callable[..., str] = lambda _: "mdi:eye"
+
+
+@dataclass
+class ElegooPrinterLightEntityDescription(
+    ElegooPrinterSensorEntityDescriptionMixin, LightEntityDescription
+):
+    """Light entity description for Elegoo Printers."""
+
+    available_fn: Callable[..., bool] = lambda printer_data: printer_data
+    exists_fn: Callable[..., bool] = lambda _: True
+    extra_attributes: Callable[..., dict] = lambda _: {}
+    icon_fn: Callable[..., str] = lambda _: "mdi:lightbulb"
+
+
+@dataclass
+class ElegooPrinterButtonEntityDescription(ButtonEntityDescription):
+    """Button entity description for Elegoo Printers."""
+
+    action_fn: Callable[..., Coroutine[Any, Any, None]] = _async_noop
+    available_fn: Callable[..., bool] = lambda printer_data: printer_data
+
+
+@dataclass
+class ElegooPrinterFanEntityDescription(
+    ElegooPrinterSensorEntityDescriptionMixin,
+    FanEntityDescription,
+):
+    """Fan entity description for Elegoo Printers."""
+
+    available_fn: Callable[..., bool] = lambda printer_data: printer_data
+    exists_fn: Callable[..., bool] = lambda _: True
+    extra_attributes: Callable[..., dict] = lambda _: {}
+    icon_fn: Callable[..., str] = lambda _: "mdi:fan"
+    percentage_fn: Callable[..., int | None] = lambda _: None
+    supported_features: FanEntityFeature = FanEntityFeature(0)  # noqa: RUF009
+
+
+@dataclass(kw_only=True)
+class ElegooPrinterSelectEntityDescription(SelectEntityDescription):
+    """Select entity description for Elegoo Printers."""
+
+    options_map: dict[str, Any]
+    current_option_fn: Callable[..., str | None]
+    select_option_fn: Callable[..., Coroutine[Any, Any, None]]
+
+
+@dataclass(kw_only=True)
+class ElegooPrinterNumberEntityDescription(NumberEntityDescription):
+    """Number entity description for Elegoo Printers."""
+
+    value_fn: Callable[..., float | None]
+    set_value_fn: Callable[..., Coroutine[Any, Any, None]]
+
+
+# Print speed presets for SDCP (WebSocket/MQTT) printers
+# These values align with the 160% speed clamp in websocket/mqtt clients
+PRINT_SPEED_PRESETS_SDCP = {
+    "Silent": 50,
+    "Balanced": 100,
+    "Sport": 130,
+    "Ludicrous": 160,
+}
+
+# Print speed presets for CC2 printers
+# These values map to discrete mode thresholds in the printer firmware
+PRINT_SPEED_PRESETS_CC2 = {
+    "Silent": 50,
+    "Balanced": 100,
+    "Sport": 150,
+    "Ludicrous": 200,
+}
+
+
+def _get_closest_print_speed_preset(
+    speed_pct: int | None,
+    presets: dict[str, int] = PRINT_SPEED_PRESETS_SDCP,
+) -> str | None:
+    """
+    Find the closest matching print speed preset name for a given percentage.
+
+    This function handles cases where the printer reports a speed that doesn't
+    exactly match a preset (e.g., 160% when Ludicrous mode is selected but
+    clamped by the printer firmware).
+
+    Args:
+        speed_pct: The current print speed percentage from the printer.
+        presets: Dictionary mapping preset names to their percentage values.
+
+    Returns:
+        The name of the closest matching preset, or None if speed_pct is None.
+
+    """
+    if speed_pct is None:
+        return None
+
+    # Find the preset with the minimum difference
+    closest_name = None
+    min_diff = float("inf")
+
+    for name, value in presets.items():
+        diff = abs(value - speed_pct)
+        if diff < min_diff:
+            min_diff = diff
+            closest_name = name
+
+    return closest_name
+
+
+# Attributes common to both V1 (MQTT) and V3 (WebSocket/SDCP) printers
+PRINTER_ATTRIBUTES_COMMON: tuple[ElegooPrinterSensorEntityDescription, ...] = (
+    ElegooPrinterSensorEntityDescription(
+        key="remaining_memory",
+        name="Remaining Memory",
+        icon="mdi:memory",
+        device_class=SensorDeviceClass.DATA_SIZE,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfInformation.BITS,
+        suggested_unit_of_measurement=UnitOfInformation.MEGABYTES,
+        suggested_display_precision=2,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda printer_data: printer_data.attributes.remaining_memory,
+    ),
+    ElegooPrinterSensorEntityDescription(
+        key="mainboard_ip",
+        name="IP Address",
+        icon="mdi:ip-network",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda printer_data: printer_data.attributes.mainboard_ip,
+    ),
+)
+
+# Attributes only available on V3 (WebSocket/SDCP) printers
+# V1 (MQTT) printers do not send these fields
+PRINTER_ATTRIBUTES_V3_ONLY: tuple[ElegooPrinterSensorEntityDescription, ...] = (
+    ElegooPrinterSensorEntityDescription(
+        key="printer_url",
+        name="Printer URL",
+        icon="mdi:link-variant",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda printer_data: printer_data.printer_url,
+    ),
+    ElegooPrinterSensorEntityDescription(
+        key="video_stream_connected",
+        name="Video Stream Connected",
+        icon="mdi:camera",
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda printer_data: (
+            printer_data.attributes.num_video_stream_connected
+        ),
+    ),
+    ElegooPrinterSensorEntityDescription(
+        key="video_stream_max",
+        name="Video Stream Max",
+        icon="mdi:camera",
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda printer_data: printer_data.attributes.max_video_stream_allowed,
+    ),
+    ElegooPrinterSensorEntityDescription(
+        key="mainboard_mac",
+        name="MAC Address",
+        icon="mdi:network",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda printer_data: printer_data.attributes.mainboard_mac,
+    ),
+    ElegooPrinterSensorEntityDescription(
+        key="num_cloud_sdcp_services_connected",
+        name="Cloud Services Connected",
+        icon="mdi:cloud-check",
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda printer_data: (
+            printer_data.attributes.num_cloud_sdcp_services_connected
+        ),
+    ),
+    ElegooPrinterSensorEntityDescription(
+        key="max_cloud_sdcp_services_allowed",
+        name="Max Cloud Services",
+        icon="mdi:cloud-lock",
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda printer_data: (
+            printer_data.attributes.max_cloud_sdcp_services_allowed
+        ),
+    ),
+)
+
+# Binary sensors common to both V1 (MQTT) and V3 (WebSocket/SDCP) printers
+PRINTER_ATTRIBUTES_BINARY_COMMON: tuple[
+    ElegooPrinterBinarySensorEntityDescription, ...
+] = (
+    ElegooPrinterBinarySensorEntityDescription(
+        key="usb_disk_status",
+        name="USB Disk Status",
+        icon="mdi:usb",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda printer_data: (
+            bool(printer_data.attributes.usb_disk_status)
+            if printer_data is not None
+            else False
+        ),
+    ),
+    ElegooPrinterBinarySensorEntityDescription(
+        key="sdcp_status",
+        name="SDCP Status",
+        icon="mdi:lan-connect",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda printer_data: (
+            bool(printer_data.attributes.sdcp_status)
+            if printer_data is not None
+            else False
+        ),
+    ),
+)
+
+# Binary sensors only available on V3 (WebSocket/SDCP) printers
+PRINTER_ATTRIBUTES_BINARY_V3_ONLY: tuple[
+    ElegooPrinterBinarySensorEntityDescription, ...
+] = (
+    ElegooPrinterBinarySensorEntityDescription(
+        key="firmware_update_available",
+        name="Firmware Update Available",
+        device_class=BinarySensorDeviceClass.UPDATE,
+        icon="mdi:cellphone-arrow-down",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda printer_data: (
+            printer_data.firmware_update_info.get("update_available", False)
+            if printer_data is not None
+            else False
+        ),
+        extra_attributes=lambda entity: (
+            {
+                "current_version": entity.coordinator.data.firmware_update_info.get(
+                    "current_version"
+                ),
+                "latest_version": entity.coordinator.data.firmware_update_info.get(
+                    "latest_version"
+                ),
+                "package_url": entity.coordinator.data.firmware_update_info.get(
+                    "package_url"
+                ),
+                "changelog": entity.coordinator.data.firmware_update_info.get(
+                    "changelog"
+                ),
+            }
+            if entity.coordinator.data and entity.coordinator.data.firmware_update_info
+            else {}
+        ),
+    ),
+)
+
+
+# Binary sensors only available on printers with vat heating
+PRINTER_BINARY_STATUS_RESIN_VAT_HEATER: tuple[
+    ElegooPrinterBinarySensorEntityDescription, ...
+] = (
+    ElegooPrinterBinarySensorEntityDescription(
+        key="vat_heating",
+        name="Vat Heating",
+        icon="mdi:heat-wave",
+        device_class=BinarySensorDeviceClass.RUNNING,
+        value_fn=lambda printer_data: (
+            printer_data
+            and printer_data.status
+            and printer_data.status.heat_status == 1
+        ),
+    ),
+)
+
+PRINTER_ATTRIBUTES_RESIN: tuple[ElegooPrinterSensorEntityDescription, ...] = (
+    ElegooPrinterSensorEntityDescription(
+        key="release_film_max",
+        name="Release Film Max",
+        icon="mdi:film",
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda printer_data: printer_data.attributes.release_film_max,
+    ),
+    ElegooPrinterSensorEntityDescription(
+        key="temp_of_uvled_max",
+        name="UV LED Temp Max",
+        icon="mdi:thermometer",
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda printer_data: (
+            printer_data.attributes.temp_of_uvled_max
+            if printer_data and printer_data.attributes
+            else None
+        ),
+        exists_fn=lambda printer_data: (
+            printer_data
+            and printer_data.attributes
+            and printer_data.attributes.temp_of_uvled_max > 0
+        ),
+        entity_registry_enabled_default=False,
+    ),
+)
+
+PRINTER_STATUS_COMMON: tuple[ElegooPrinterSensorEntityDescription, ...] = (
+    ElegooPrinterSensorEntityDescription(
+        key="total_ticks",
+        name="Total Print Time",
+        icon="mdi:timer-sand-complete",
+        device_class=SensorDeviceClass.DURATION,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        native_unit_of_measurement=UnitOfTime.MILLISECONDS,
+        suggested_unit_of_measurement=UnitOfTime.MINUTES,
+        value_fn=lambda printer_data: printer_data.status.print_info.total_ticks,
+    ),
+    ElegooPrinterSensorEntityDescription(
+        key="current_ticks",
+        name="Current Print Time",
+        icon="mdi:progress-clock",
+        device_class=SensorDeviceClass.DURATION,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfTime.MILLISECONDS,
+        suggested_unit_of_measurement=UnitOfTime.MINUTES,
+        value_fn=lambda printer_data: printer_data.status.print_info.current_ticks,
+    ),
+    ElegooPrinterSensorEntityDescription(
+        key="ticks_remaining",
+        name="Remaining Print Time",
+        icon="mdi:timer-sand",
+        device_class=SensorDeviceClass.DURATION,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfTime.MILLISECONDS,
+        suggested_unit_of_measurement=UnitOfTime.MINUTES,
+        value_fn=lambda printer_data: printer_data.status.print_info.remaining_ticks,
+    ),
+    ElegooPrinterSensorEntityDescription(
+        key="end_time",
+        name="End Time",
+        icon="mdi:clock",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        value_fn=lambda printer_data: (
+            printer_data.current_job.end_time if printer_data.current_job else None
+        ),
+    ),
+    ElegooPrinterSensorEntityDescription(
+        key="begin_time",
+        name="Begin Time",
+        icon="mdi:clock-start",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        value_fn=lambda printer_data: (
+            printer_data.current_job.begin_time if printer_data.current_job else None
+        ),
+    ),
+    ElegooPrinterSensorEntityDescription(
+        key="total_layers",
+        name="Total Layers",
+        icon="mdi:eye",
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda printer_data: printer_data.status.print_info.total_layers,
+    ),
+    ElegooPrinterSensorEntityDescription(
+        key="current_layer",
+        name="Current Layer",
+        icon="mdi:eye",
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda printer_data: printer_data.status.print_info.current_layer,
+    ),
+    ElegooPrinterSensorEntityDescription(
+        key="remaining_layers",
+        name="Remaining Layers",
+        icon="mdi:eye",
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda printer_data: printer_data.status.print_info.remaining_layers,
+    ),
+    ElegooPrinterSensorEntityDescription(
+        key="percent_complete",
+        name="Percent Complete",
+        icon="mdi:percent",
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=2,
+        value_fn=lambda printer_data: printer_data.status.print_info.percent_complete,
+    ),
+    ElegooPrinterSensorEntityDescription(
+        key="filename",
+        name="File Name",
+        icon="mdi:file",
+        value_fn=lambda printer_data: (
+            (printer_data.status.print_info.filename or "").strip() or None
+        ),
+    ),
+    ElegooPrinterSensorEntityDescription(
+        key="task_id",
+        name="Task ID",
+        icon="mdi:identifier",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda printer_data: (
+            (printer_data.status.print_info.task_id or "").strip() or None
+        ),
+    ),
+    ElegooPrinterSensorEntityDescription(
+        key="current_status",
+        translation_key="current_status",
+        name="Current Status",
+        icon="mdi:file",
+        device_class=SensorDeviceClass.ENUM,
+        options=[status.name.lower() for status in ElegooMachineStatus],
+        value_fn=lambda printer_data: (
+            printer_data.status.current_status.name.lower()
+            if printer_data
+            and printer_data.status
+            and printer_data.status.current_status
+            else None
+        ),
+    ),
+    ElegooPrinterSensorEntityDescription(
+        key="print_status",
+        translation_key="print_status",
+        name="Print Status",
+        icon="mdi:file",
+        device_class=SensorDeviceClass.ENUM,
+        options=[status.name.lower() for status in ElegooPrintStatus],
+        value_fn=lambda printer_data: (
+            printer_data.status.print_info.status.name.lower()
+            if printer_data
+            and printer_data.status
+            and printer_data.status.print_info
+            and printer_data.status.print_info.status
+            else None
+        ),
+    ),
+    ElegooPrinterSensorEntityDescription(
+        key="print_error",
+        translation_key="print_error",
+        name="Print Error",
+        icon="mdi:file",
+        device_class=SensorDeviceClass.ENUM,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        options=[error.name.lower() for error in ElegooPrintError],
+        value_fn=lambda printer_data: (
+            printer_data.status.print_info.error_number.name.lower()
+            if printer_data
+            and printer_data.status
+            and printer_data.status.print_info
+            and printer_data.status.print_info.error_number
+            else None
+        ),
+    ),
+    ElegooPrinterSensorEntityDescription(
+        key="current_print_error_status_reason",
+        translation_key="error_status_reason",
+        name="Print Error Reason",
+        icon="mdi:file",
+        device_class=SensorDeviceClass.ENUM,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        options=[reason.name.lower() for reason in ElegooErrorStatusReason],
+        value_fn=lambda printer_data: (
+            printer_data.current_job.error_status_reason.name.lower()
+            if printer_data
+            and printer_data.current_job
+            and printer_data.current_job.error_status_reason
+            else None
+        ),
+    ),
+)
+
+PRINTER_STATUS_RESIN: tuple[ElegooPrinterSensorEntityDescription, ...] = (
+    ElegooPrinterSensorEntityDescription(
+        key="temp_of_uvled",
+        name="UV LED Temp",
+        icon="mdi:thermometer",
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        value_fn=lambda printer_data: printer_data.status.temp_of_uvled,
+    ),
+    ElegooPrinterSensorEntityDescription(
+        key="release_film",
+        name="Release Film",
+        icon="mdi:film",
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda printer_data: printer_data.status.release_film,
+    ),
+)
+
+
+# Resin sensors only available on printers with vat heating
+PRINTER_STATUS_RESIN_VAT_HEATER: tuple[ElegooPrinterSensorEntityDescription, ...] = (
+    # --- Current Vat Temperature Sensor ---
+    ElegooPrinterSensorEntityDescription(
+        key="vat_temp",
+        name="Vat Temp",
+        icon="mdi:thermometer",
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        value_fn=lambda printer_data: (
+            printer_data.status.temp_of_tank
+            if printer_data and printer_data.status
+            else None
+        ),
+    ),
+    # --- Target Vat Temperature Sensor ---
+    ElegooPrinterSensorEntityDescription(
+        key="vat_temp_target",
+        name="Target Vat Temp",
+        icon="mdi:thermometer",
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        value_fn=lambda printer_data: (
+            printer_data.status.temp_target_tank
+            if printer_data and printer_data.status
+            else None
+        ),
+    ),
+)
+
+
+PRINTER_STATUS_FDM: tuple[ElegooPrinterSensorEntityDescription, ...] = (
+    # --- Enclosure/Box Temperature Sensor ---
+    ElegooPrinterSensorEntityDescription(
+        key="temp_of_box",
+        name="Box Temp",
+        icon="mdi:thermometer",
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        value_fn=lambda printer_data: (
+            printer_data.status.temp_of_box
+            if printer_data and printer_data.status
+            else None
+        ),
+    ),
+    # --- Nozzle Temperature Sensor ---
+    ElegooPrinterSensorEntityDescription(
+        key="nozzle_temp",
+        name="Nozzle Temperature",
+        icon="mdi:thermometer",
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        value_fn=lambda printer_data: (
+            printer_data.status.temp_of_nozzle
+            if printer_data and printer_data.status
+            else None
+        ),
+    ),
+    # --- Bed Temperature Sensor ---
+    ElegooPrinterSensorEntityDescription(
+        key="bed_temp",
+        name="Bed Temperature",
+        icon="mdi:thermometer",
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        value_fn=lambda printer_data: (
+            printer_data.status.temp_of_hotbed
+            if printer_data and printer_data.status
+            else None
+        ),
+    ),
+    # --- Z Offset Sensor ---
+    ElegooPrinterSensorEntityDescription(
+        key="z_offset",
+        name="Z Offset",
+        icon="mdi:arrow-expand-vertical",
+        device_class=SensorDeviceClass.DISTANCE,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfLength.MILLIMETERS,
+        suggested_display_precision=4,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda printer_data: (
+            printer_data.status.z_offset
+            if printer_data and printer_data.status
+            else None
+        ),
+    ),
+    # --- Model Fan Speed Sensor ---
+    ElegooPrinterSensorEntityDescription(
+        key="model_fan_speed",
+        name="Model Fan Speed",
+        icon="mdi:fan",
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=PERCENTAGE,
+        value_fn=lambda printer_data: (
+            printer_data.status.current_fan_speed.model_fan
+            if printer_data
+            and printer_data.status
+            and printer_data.status.current_fan_speed
+            else None
+        ),
+    ),
+    # --- Auxiliary Fan Speed Sensor ---
+    ElegooPrinterSensorEntityDescription(
+        key="aux_fan_speed",
+        name="Auxiliary Fan Speed",
+        icon="mdi:fan",
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=PERCENTAGE,
+        value_fn=lambda printer_data: (
+            printer_data.status.current_fan_speed.auxiliary_fan
+            if printer_data
+            and printer_data.status
+            and printer_data.status.current_fan_speed
+            else None
+        ),
+    ),
+    # --- Box/Enclosure Fan Speed Sensor ---
+    ElegooPrinterSensorEntityDescription(
+        key="box_fan_speed",
+        name="Enclosure Fan Speed",
+        icon="mdi:fan",
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=PERCENTAGE,
+        value_fn=lambda printer_data: (
+            printer_data.status.current_fan_speed.box_fan
+            if printer_data
+            and printer_data.status
+            and printer_data.status.current_fan_speed
+            else None
+        ),
+    ),
+    # --- Print Speed Percentage Sensor ---
+    ElegooPrinterSensorEntityDescription(
+        key="print_speed_pct",
+        name="Print Speed",
+        icon="mdi:speedometer",
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=PERCENTAGE,
+        value_fn=lambda printer_data: (
+            printer_data.status.print_info.print_speed_pct
+            if printer_data and printer_data.status and printer_data.status.print_info
+            else None
+        ),
+    ),
+    # --- Current X Coordinate Sensor ---
+    ElegooPrinterSensorEntityDescription(
+        key="current_x",
+        name="Current X",
+        icon="mdi:axis-x-arrow",
+        device_class=SensorDeviceClass.DISTANCE,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfLength.MILLIMETERS,
+        suggested_display_precision=2,
+        value_fn=lambda printer_data: _get_current_coord_value(printer_data, 0),
+    ),
+    # --- Current Y Coordinate Sensor ---
+    ElegooPrinterSensorEntityDescription(
+        key="current_y",
+        name="Current Y",
+        icon="mdi:axis-y-arrow",
+        device_class=SensorDeviceClass.DISTANCE,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfLength.MILLIMETERS,
+        suggested_display_precision=2,
+        value_fn=lambda printer_data: _get_current_coord_value(printer_data, 1),
+    ),
+    # --- Current Z Coordinate Sensor ---
+    ElegooPrinterSensorEntityDescription(
+        key="current_z",
+        name="Current Z",
+        icon="mdi:axis-z-arrow",
+        device_class=SensorDeviceClass.DISTANCE,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfLength.MILLIMETERS,
+        suggested_display_precision=2,
+        value_fn=lambda printer_data: _get_current_coord_value(printer_data, 2),
+    ),
+)
+
+# FDM total extrusion sensor
+PRINTER_STATUS_FDM_TOTAL_EXTRUSION: tuple[ElegooPrinterSensorEntityDescription, ...] = (
+    ElegooPrinterSensorEntityDescription(
+        key="total_extrusion",
+        name="Total Extrusion",
+        icon="mdi:printer-3d-nozzle",
+        device_class=SensorDeviceClass.DISTANCE,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        native_unit_of_measurement=UnitOfLength.MILLIMETERS,
+        suggested_display_precision=2,
+        value_fn=lambda printer_data: (
+            printer_data.status.print_info.total_extrusion
+            if printer_data and printer_data.status and printer_data.status.print_info
+            else None
+        ),
+    ),
+)
+
+# FDM current extrusion sensor
+PRINTER_STATUS_FDM_CURRENT_EXTRUSION: tuple[
+    ElegooPrinterSensorEntityDescription, ...
+] = (
+    ElegooPrinterSensorEntityDescription(
+        key="current_extrusion",
+        name="Current Extrusion",
+        icon="mdi:printer-3d-nozzle",
+        device_class=SensorDeviceClass.DISTANCE,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfLength.MILLIMETERS,
+        suggested_display_precision=2,
+        value_fn=lambda printer_data: (
+            printer_data.status.print_info.current_extrusion
+            if printer_data and printer_data.status and printer_data.status.print_info
+            else None
+        ),
+    ),
+)
+
+
+# Canvas/AMS binary sensors (CC2 with Canvas support)
+PRINTER_BINARY_STATUS_CANVAS: tuple[ElegooPrinterBinarySensorEntityDescription, ...] = (
+    # AMS Connection Status
+    ElegooPrinterBinarySensorEntityDescription(
+        key="ams_connected",
+        name="Canvas Connected",
+        device_class=BinarySensorDeviceClass.CONNECTIVITY,
+        icon="mdi:printer-3d-nozzle",
+        value_fn=lambda printer_data: (
+            printer_data.ams_status.ams_connect_status
+            if printer_data and printer_data.ams_status
+            else False
+        ),
+    ),
+)
+
+
+# Canvas/AMS sensors (CC2 with Canvas support)
+# A1-A4 naming matches the slicer UI (1-indexed, "A" prefix for AMS).
+PRINTER_STATUS_CANVAS: tuple[ElegooPrinterSensorEntityDescription, ...] = (
+    ElegooPrinterSensorEntityDescription(
+        key="active_filament_color",
+        name="Active Filament Color",
+        icon="mdi:palette",
+        value_fn=lambda printer_data: _get_active_filament_color(printer_data),
+        extra_attributes=lambda entity: _get_active_filament_attributes(
+            entity.coordinator.data
+        ),
+    ),
+    # --- A1-A4 Color ---
+    *(
+        ElegooPrinterSensorEntityDescription(
+            key=f"a{i + 1}_color",
+            name=f"A{i + 1} Color",
+            icon="mdi:palette",
+            value_fn=(lambda pd, _i=i: _get_slot_color(pd, _i)),
+        )
+        for i in range(4)
+    ),
+    # --- A1-A4 Name ---
+    *(
+        ElegooPrinterSensorEntityDescription(
+            key=f"a{i + 1}_name",
+            name=f"A{i + 1} Name",
+            icon="mdi:tag",
+            value_fn=(lambda pd, _i=i: _get_slot_name(pd, _i)),
+        )
+        for i in range(4)
+    ),
+    # --- A1-A4 Attributes (state = filament type, attrs = metadata) ---
+    *(
+        ElegooPrinterSensorEntityDescription(
+            key=f"a{i + 1}_attributes",
+            name=f"A{i + 1} Attributes",
+            icon="mdi:information-outline",
+            value_fn=(lambda pd, _i=i: _get_slot_filament_type(pd, _i)),
+            extra_attributes=(
+                lambda entity, _i=i: _get_slot_attributes(entity.coordinator.data, _i)
+            ),
+        )
+        for i in range(4)
+    ),
+)
+
+
+def _get_total_filament_used(printer_data: PrinterData) -> float | None:
+    """Get total filament used in grams from gcode file detail."""
+    if not printer_data or not printer_data.gcode_filament_data:
+        return None
+    return printer_data.gcode_filament_data.total_filament_used
+
+
+def _get_total_filament_used_attributes(printer_data: PrinterData) -> dict:
+    """Get extra attributes for the total filament used sensor."""
+    if not printer_data or not printer_data.gcode_filament_data:
+        return {}
+    data = printer_data.gcode_filament_data
+    attrs: dict[str, Any] = {}
+    if data.filename:
+        attrs["filename"] = data.filename
+    if data.print_time is not None:
+        attrs["print_time_sec"] = data.print_time
+    attrs["extruder_count"] = len(data.color_map)
+    if data.color_map:
+        attrs["color_map"] = data.color_map
+    if data.slicer_version:
+        attrs["slicer_version"] = data.slicer_version
+    if data.estimated_time:
+        attrs["estimated_time"] = data.estimated_time
+    return attrs
+
+
+def _get_total_filament_cost(printer_data: PrinterData) -> float | None:
+    """Get total filament cost from proxy data."""
+    if not printer_data or not printer_data.gcode_filament_data:
+        return None
+    return printer_data.gcode_filament_data.total_cost
+
+
+def _get_total_filament_cost_attributes(printer_data: PrinterData) -> dict:
+    """Get extra attributes for the total filament cost sensor."""
+    if not printer_data or not printer_data.gcode_filament_data:
+        return {}
+    data = printer_data.gcode_filament_data
+    if data.per_slot_cost:
+        return {"per_slot_cost": data.per_slot_cost}
+    return {}
+
+
+def _get_total_filament_changes(printer_data: PrinterData) -> int | None:
+    """Get total filament changes from proxy data."""
+    if not printer_data or not printer_data.gcode_filament_data:
+        return None
+    return printer_data.gcode_filament_data.total_filament_changes
+
+
+PRINTER_STATUS_CC2_GCODE_FILAMENT: tuple[ElegooPrinterSensorEntityDescription, ...] = (
+    ElegooPrinterSensorEntityDescription(
+        key="total_filament_used",
+        name="Total Filament Used",
+        icon="mdi:printer-3d-nozzle",
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=2,
+        value_fn=lambda printer_data: _get_total_filament_used(printer_data),
+        extra_attributes=lambda entity: _get_total_filament_used_attributes(
+            entity.coordinator.data
+        ),
+    ),
+)
+
+PRINTER_STATUS_CC2_GCODE_PROXY_FILAMENT: tuple[
+    ElegooPrinterSensorEntityDescription, ...
+] = (
+    # --- A1-A4 Grams ---
+    *(
+        ElegooPrinterSensorEntityDescription(
+            key=f"a{i + 1}_grams",
+            name=f"A{i + 1} Grams",
+            icon="mdi:weight-gram",
+            state_class=SensorStateClass.MEASUREMENT,
+            native_unit_of_measurement="g",
+            suggested_display_precision=2,
+            value_fn=(lambda pd, _i=i: _get_slot_grams(pd, _i)),
+        )
+        for i in range(4)
+    ),
+    # --- A1-A4 Cubic Centimeters ---
+    *(
+        ElegooPrinterSensorEntityDescription(
+            key=f"a{i + 1}_cubic_centimeters",
+            name=f"A{i + 1} Cubic Centimeters",
+            icon="mdi:cube-outline",
+            state_class=SensorStateClass.MEASUREMENT,
+            native_unit_of_measurement="cm³",
+            suggested_display_precision=2,
+            value_fn=(lambda pd, _i=i: _get_slot_cm3(pd, _i)),
+        )
+        for i in range(4)
+    ),
+    # --- A1-A4 Length Millimeters ---
+    *(
+        ElegooPrinterSensorEntityDescription(
+            key=f"a{i + 1}_length_millimeters",
+            name=f"A{i + 1} Length Millimeters",
+            icon="mdi:ruler",
+            state_class=SensorStateClass.MEASUREMENT,
+            native_unit_of_measurement=UnitOfLength.MILLIMETERS,
+            suggested_display_precision=2,
+            value_fn=(lambda pd, _i=i: _get_slot_mm(pd, _i)),
+        )
+        for i in range(4)
+    ),
+    # --- Totals ---
+    ElegooPrinterSensorEntityDescription(
+        key="total_filament_cost",
+        name="Total Filament Cost",
+        icon="mdi:cash",
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=2,
+        value_fn=lambda printer_data: _get_total_filament_cost(printer_data),
+        extra_attributes=lambda entity: _get_total_filament_cost_attributes(
+            entity.coordinator.data
+        ),
+    ),
+    ElegooPrinterSensorEntityDescription(
+        key="total_filament_changes",
+        name="Total Filament Changes",
+        icon="mdi:swap-horizontal",
+        value_fn=lambda printer_data: _get_total_filament_changes(printer_data),
+    ),
+)
+
+
+PRINTER_IMAGES: tuple[ElegooPrinterSensorEntityDescription, ...] = (
+    ElegooPrinterSensorEntityDescription(
+        key="cover_image",
+        name="Cover Image",
+        value_fn=lambda thumbnail: thumbnail,
+    ),
+)
+
+PRINTER_MJPEG_CAMERAS: tuple[ElegooPrinterSensorEntityDescription, ...] = (
+    ElegooPrinterSensorEntityDescription(
+        key="chamber_camera",
+        name="Chamber Camera",
+        value_fn=lambda camera_url: camera_url,
+    ),
+)
+
+PRINTER_FFMPEG_CAMERAS = PRINTER_MJPEG_CAMERAS
+
+PRINTER_FDM_LIGHTS: tuple[ElegooPrinterLightEntityDescription, ...] = (
+    ElegooPrinterLightEntityDescription(
+        key="second_light",
+        name="Chamber Light",
+        value_fn=lambda light_status: (
+            light_status.second_light if light_status else None
+        ),
+    ),
+)
+
+# Printer select types for SDCP (WebSocket/MQTT) printers - max 160% clamp
+PRINTER_SELECT_TYPES_V1V3: tuple[ElegooPrinterSelectEntityDescription, ...] = (
+    ElegooPrinterSelectEntityDescription(
+        key="print_speed",
+        name="Print Speed",
+        icon="mdi:speedometer",
+        options=list(PRINT_SPEED_PRESETS_SDCP.keys()),
+        options_map=PRINT_SPEED_PRESETS_SDCP,
+        current_option_fn=lambda printer_data: _get_closest_print_speed_preset(
+            printer_data.status.print_info.print_speed_pct
+            if printer_data and printer_data.status and printer_data.status.print_info
+            else None,
+            PRINT_SPEED_PRESETS_SDCP,
+        ),
+        select_option_fn=lambda api, value: api.async_set_print_speed(value),
+    ),
+)
+
+# Printer select types for CC2 protocol printers - discrete mode mapping
+PRINTER_SELECT_TYPES_CC2: tuple[ElegooPrinterSelectEntityDescription, ...] = (
+    ElegooPrinterSelectEntityDescription(
+        key="print_speed",
+        name="Print Speed",
+        icon="mdi:speedometer",
+        options=list(PRINT_SPEED_PRESETS_CC2.keys()),
+        options_map=PRINT_SPEED_PRESETS_CC2,
+        current_option_fn=lambda printer_data: _get_closest_print_speed_preset(
+            printer_data.status.print_info.print_speed_pct
+            if printer_data and printer_data.status and printer_data.status.print_info
+            else None,
+            PRINT_SPEED_PRESETS_CC2,
+        ),
+        select_option_fn=lambda api, value: api.async_set_print_speed(value),
+    ),
+)
+
+PRINTER_NUMBER_TYPES: tuple[ElegooPrinterNumberEntityDescription, ...] = (
+    ElegooPrinterNumberEntityDescription(
+        key="target_nozzle_temp",
+        name="Target Nozzle Temp",
+        icon="mdi:thermometer",
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        native_min_value=0,
+        native_max_value=320,
+        native_step=1,
+        mode=NumberMode.BOX,
+        value_fn=lambda printer_data: printer_data.status.temp_target_nozzle,
+        set_value_fn=lambda api, value: api.async_set_target_nozzle_temp(int(value)),
+    ),
+    ElegooPrinterNumberEntityDescription(
+        key="target_bed_temp",
+        name="Target Bed Temp",
+        icon="mdi:thermometer",
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        native_min_value=0,
+        native_max_value=110,
+        native_step=1,
+        mode=NumberMode.BOX,
+        value_fn=lambda printer_data: printer_data.status.temp_target_hotbed,
+        set_value_fn=lambda api, value: api.async_set_target_bed_temp(int(value)),
+    ),
+)
+
+
+async def _pause_print_action(client: ElegooPrinterClient) -> None:
+    """Pause print action."""
+    return await client.print_pause()
+
+
+async def _resume_print_action(client: ElegooPrinterClient) -> None:
+    """Resume print action."""
+    return await client.print_resume()
+
+
+async def _stop_print_action(client: ElegooPrinterClient) -> None:
+    """Stop print action."""
+    return await client.print_stop()
+
+
+async def _home_all_action(client: ElegooPrinterClient) -> None:
+    """Home all axes action."""
+    return await client.home_axis("XYZ")
+
+
+async def _home_x_action(client: ElegooPrinterClient) -> None:
+    """Home X axis action."""
+    return await client.home_axis("X")
+
+
+async def _home_y_action(client: ElegooPrinterClient) -> None:
+    """Home Y axis action."""
+    return await client.home_axis("Y")
+
+
+async def _home_z_action(client: ElegooPrinterClient) -> None:
+    """Home Z axis action."""
+    return await client.home_axis("Z")
+
+
+PRINTER_FDM_BUTTONS: tuple[ElegooPrinterButtonEntityDescription, ...] = (
+    ElegooPrinterButtonEntityDescription(
+        key="pause_print",
+        name="Pause Print",
+        action_fn=_pause_print_action,
+        icon="mdi:pause",
+        available_fn=lambda client: (
+            client.printer_data.status.current_status == ElegooMachineStatus.PRINTING
+        ),
+    ),
+    ElegooPrinterButtonEntityDescription(
+        key="resume_print",
+        name="Resume Print",
+        action_fn=_resume_print_action,
+        icon="mdi:play",
+        available_fn=lambda client: (
+            client.printer_data.status.print_info.status == ElegooPrintStatus.PAUSED
+        ),
+    ),
+    ElegooPrinterButtonEntityDescription(
+        key="stop_print",
+        name="Stop Print",
+        action_fn=_stop_print_action,
+        icon="mdi:stop",
+        available_fn=lambda client: (
+            client.printer_data.status.current_status in [ElegooMachineStatus.PRINTING]
+            or client.printer_data.status.print_info.status == ElegooPrintStatus.PAUSED
+        ),
+    ),
+)
+
+PRINTER_FDM_BUTTONS_V3_ONLY: tuple[ElegooPrinterButtonEntityDescription, ...] = (
+    ElegooPrinterButtonEntityDescription(
+        key="home_all",
+        name="Home All",
+        action_fn=_home_all_action,
+        icon="mdi:home",
+        available_fn=lambda client: (
+            client.printer_data.status.current_status == ElegooMachineStatus.IDLE
+        ),
+    ),
+    ElegooPrinterButtonEntityDescription(
+        key="home_x",
+        name="Home X",
+        action_fn=_home_x_action,
+        icon="mdi:axis-x-arrow",
+        available_fn=lambda client: (
+            client.printer_data.status.current_status == ElegooMachineStatus.IDLE
+        ),
+    ),
+    ElegooPrinterButtonEntityDescription(
+        key="home_y",
+        name="Home Y",
+        action_fn=_home_y_action,
+        icon="mdi:axis-y-arrow",
+        available_fn=lambda client: (
+            client.printer_data.status.current_status == ElegooMachineStatus.IDLE
+        ),
+    ),
+    ElegooPrinterButtonEntityDescription(
+        key="home_z",
+        name="Home Z",
+        action_fn=_home_z_action,
+        icon="mdi:axis-z-arrow",
+        available_fn=lambda client: (
+            client.printer_data.status.current_status == ElegooMachineStatus.IDLE
+        ),
+    ),
+)
+
+FANS: tuple[ElegooPrinterFanEntityDescription, ...] = (
+    ElegooPrinterFanEntityDescription(
+        key="model_fan",
+        name="Model Fan",
+        icon="mdi:fan",
+        supported_features=FanEntityFeature.SET_SPEED
+        | FanEntityFeature.TURN_ON
+        | FanEntityFeature.TURN_OFF,
+        value_fn=lambda printer_data: (
+            printer_data.status.current_fan_speed.model_fan > 0
+        ),
+        percentage_fn=lambda printer_data: (
+            printer_data.status.current_fan_speed.model_fan
+        ),
+    ),
+    ElegooPrinterFanEntityDescription(
+        key="auxiliary_fan",
+        name="Auxiliary Fan",
+        icon="mdi:fan",
+        supported_features=FanEntityFeature.SET_SPEED
+        | FanEntityFeature.TURN_ON
+        | FanEntityFeature.TURN_OFF,
+        value_fn=lambda printer_data: (
+            printer_data.status.current_fan_speed.auxiliary_fan > 0
+        ),
+        percentage_fn=lambda printer_data: (
+            printer_data.status.current_fan_speed.auxiliary_fan
+        ),
+    ),
+    ElegooPrinterFanEntityDescription(
+        key="box_fan",
+        name="Enclosure Fan",
+        icon="mdi:fan",
+        supported_features=FanEntityFeature.SET_SPEED
+        | FanEntityFeature.TURN_ON
+        | FanEntityFeature.TURN_OFF,
+        value_fn=lambda printer_data: printer_data.status.current_fan_speed.box_fan > 0,
+        percentage_fn=lambda printer_data: (
+            printer_data.status.current_fan_speed.box_fan
+        ),
+    ),
+)

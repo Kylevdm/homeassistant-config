@@ -50,12 +50,12 @@ class OctopusEnergyIntelligentTargetTimeSelect(CoordinatorEntity, SelectEntity, 
   @property
   def unique_id(self):
     """The id of the sensor."""
-    return f"octopus_energy_{self._account_id}_intelligent_target_time"
+    return f"octopus_energy_{self._device.id}_intelligent_target_time"
     
   @property
   def name(self):
     """Name of the sensor."""
-    return f"Intelligent Target Time ({self._account_id})"
+    return f"Intelligent Target Time ({self._device.id})"
 
   @property
   def icon(self):
@@ -83,9 +83,10 @@ class OctopusEnergyIntelligentTargetTimeSelect(CoordinatorEntity, SelectEntity, 
     if settings_result is None or (self._last_updated is not None and self._last_updated > settings_result.last_retrieved):
       return
 
-    if settings_result.settings is not None:
-      self._state = f"{settings_result.settings.ready_time_weekday.hour:02}:{settings_result.settings.ready_time_weekday.minute:02}"
-      self._attributes["raw_time"] = settings_result.settings.ready_time_weekday
+    if settings_result.settings is not None and len(settings_result.settings.preferences.schedules) > 0:
+      target_time: time = settings_result.settings.preferences.schedules[0].time
+      self._state = f"{target_time.hour:02}:{target_time.minute:02}"
+      self._attributes["raw_time"] = target_time
     else:
       self._attributes["raw_time"] = None
 

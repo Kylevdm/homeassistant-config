@@ -1,0 +1,264 @@
+substitutions:
+  battery_bank0: "${name} bank 0"
+  battery_bank1: "${name} bank 1"
+
+esphome:
+  name: esphome-power-hub
+  friendly_name: Power_Hub
+  min_version: 2025.10.1
+
+  on_boot:
+    priority: -100
+    then:
+      - delay: 1000ms
+      - logger.log: "Initialisation complete"
+      - number.set:
+          id: emerson_r48_output_voltage
+          value: 52.5
+      - number.set:
+          id: emerson_r48_max_output_current
+          value: 50
+      - number.set:
+          id: emerson_r48_max_input_current
+          value: 15
+
+      # Enable T‑CAN485 power rails / transceivers
+      - output.turn_on: rs485_enable
+      - output.turn_on: rs485_5v_enable
+      - output.turn_on: cgq_enable
+      - output.turn_off: can_se
+
+external_components:
+  - source: github://Kylevdm/esphome-emerson-vertiv-r48@main
+    refresh: 0s
+  - source: github://syssi/esphome-seplos-bms@main
+
+esp32:
+  board: nodemcu-32s
+  framework:
+    type: esp-idf
+
+logger:
+
+api:
+
+ota:
+  - platform: esphome
+    password: "ota_password"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "Power-Hub Fallback"
+    password: "qwertyzxc"
+
+captive_portal:
+
+esp32_ble_tracker:
+
+bluetooth_proxy:
+  active: true
+
+# ---------------------------------------------------------------------------
+# T‑CAN485 board control pins
+# ---------------------------------------------------------------------------
+
+output:
+  # RS485 enable (MAX13487E RE/DE)
+  - platform: gpio
+    id: rs485_enable
+    pin:
+      number: GPIO17
+      inverted: true
+
+  # 5V enable rail for RS485/CAN
+  - platform: gpio
+    id: rs485_5v_enable
+    pin:
+      number: GPIO16
+      inverted: true
+
+  # Extra enable rail (CGQ_EN)
+  - platform: gpio
+    id: cgq_enable
+    pin:
+      number: GPIO19
+      inverted: true
+
+  # CAN transceiver speed/standby (SN65HVD231 RS / CAN_SE)
+  - platform: gpio
+    id: can_se
+    pin:
+      number: GPIO23
+      inverted: false    # LOW = normal, HIGH = standby
+
+# ---------------------------------------------------------------------------
+# CAN bus – ESP32 TWAI + onboard SN65HVD231
+# ---------------------------------------------------------------------------
+
+canbus:
+  - platform: esp32_can
+    id: can
+    tx_pin: GPIO27
+    rx_pin: GPIO26
+    can_id: 0x0607FF83
+    use_extended_id: true
+    bit_rate: 125kbps
+    mode: NORMAL
+
+emerson_r48:
+  canbus_id: can
+  update_interval: 500ms
+
+# ---------------------------------------------------------------------------
+# UART / RS485 – Seplos V3 BMS on T‑CAN485 RS485 port
+# ---------------------------------------------------------------------------
+
+uart:
+  - id: seplos_uart
+    tx_pin: GPIO22
+    rx_pin: GPIO21
+    baud_rate: 19200    # typical for Seplos V3 – confirm in Seplos Studio
+
+seplos_bms:
+  uart_id: seplos_uart
+  id: seplos_v3
+  update_interval: 1s
+
+# ---------------------------------------------------------------------------
+# Binary sensors
+# ---------------------------------------------------------------------------
+
+binary_sensor:
+  - platform: status
+    name: "ESP Power Hub Status"
+
+# ---------------------------------------------------------------------------
+# Sensors – Emerson R48 + Seplos V3
+# ---------------------------------------------------------------------------
+
+sensor:
+  # -------- Emerson Vertiv R48 via CAN --------
+  - platform: emerson_r48
+    output_voltage:
+      name: "R48 Output Voltage"
+      id: r48_output_voltage
+    output_current:
+      name: "R48 Output Current"
+      id: r48_output_current
+    output_temp:
+      name: "R48 Temperature"
+    input_voltage:
+      name: "R48 AC Voltage"
+    max_output_current:
+      name: "R48 DC Max Current"
+      unit_of_measurement: "%"
+      icon: "mdi:percent"
+
+  - platform: template
+    name: "R48 Output Power"
+    id: outpower
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    update_interval: 2s
+    accuracy_decimals: 2
+    lambda: |-
+      if (!isnan(id(r48_output_current).state) &&
+          !isnan(id(r48_output_voltage).state) &&
+          id(r48_output_current).state > 0) {
+        return id(r48_output_current).state * id(r48_output_voltage).state;
+      } else {
+        return 0.0;
+      }
+
+   # Seplos BMS Sensors   
+
+  - platform: seplos_bms
+    seplos_bms_id: seplos_v3
+
+    battery_voltage:
+      name: "Seplos V3 Pack Voltage"
+    battery_current:
+      name: "Seplos V3 Pack Current"
+    battery_soc:
+      name: "Seplos V3 SOC"
+    battery_power:
+      name: "Seplos V3 Pack Power"
+
+    # Per-cell voltages
+    cell_1_voltage:
+      name: "Seplos V3 Cell 01 Voltage"
+    cell_2_voltage:
+      name: "Seplos V3 Cell 02 Voltage"
+    cell_3_voltage:
+      name: "Seplos V3 Cell 03 Voltage"
+    cell_4_voltage:
+      name: "Seplos V3 Cell 04 Voltage"
+    cell_5_voltage:
+      name: "Seplos V3 Cell 05 Voltage"
+    cell_6_voltage:
+      name: "Seplos V3 Cell 06 Voltage"
+    cell_7_voltage:
+      name: "Seplos V3 Cell 07 Voltage"
+    cell_8_voltage:
+      name: "Seplos V3 Cell 08 Voltage"
+    cell_9_voltage:
+      name: "Seplos V3 Cell 09 Voltage"
+    cell_10_voltage:
+      name: "Seplos V3 Cell 10 Voltage"
+    cell_11_voltage:
+      name: "Seplos V3 Cell 11 Voltage"
+    cell_12_voltage:
+      name: "Seplos V3 Cell 12 Voltage"
+    cell_13_voltage:
+      name: "Seplos V3 Cell 13 Voltage"
+    cell_14_voltage:
+      name: "Seplos V3 Cell 14 Voltage"
+    cell_15_voltage:
+      name: "Seplos V3 Cell 15 Voltage"
+    cell_16_voltage:
+      name: "Seplos V3 Cell 16 Voltage"
+
+
+# ---------------------------------------------------------------------------
+# Numbers / buttons / switches – R48 control
+# ---------------------------------------------------------------------------
+
+number:
+  - platform: emerson_r48
+    output_voltage:
+      name: "R48 Set Output Voltage"
+      id: emerson_r48_output_voltage
+    max_output_current:
+      name: "R48 Max Output Current"
+      id: emerson_r48_max_output_current
+      unit_of_measurement: "%"
+    max_input_current:
+      name: "R48 Max Input Current"
+      id: emerson_r48_max_input_current
+
+button:
+  - platform: emerson_r48
+    set_offline_values:
+      name: "R48 Set Offline Values"
+  - platform: restart
+    name: "Restart ESP"
+
+switch:
+  - platform: emerson_r48
+    ac_sw:
+      name: "R48 AC Switch OFF"
+      id: emerson_r48_ac_sw
+      restore_mode: ALWAYS_ON
+    dc_sw:
+      name: "R48 DC Switch OFF"
+      id: emerson_r48_dc_sw
+      restore_mode: ALWAYS_ON
+    fan_sw:
+      name: "R48 FAN Switch MAX"
+      id: emerson_r48_fan_sw
+    led_sw:
+      name: "R48 LED Switch"
+      id: emerson_r48_led_sw

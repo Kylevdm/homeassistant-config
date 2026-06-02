@@ -21,7 +21,7 @@ from ..const import (
 )
 
 from ..api_client import ApiException, OctopusEnergyApiClient
-from ..api_client.intelligent_settings import IntelligentSettings
+from ..api_client.intelligent_device_settings import IntelligentDeviceSettings
 from . import BaseCoordinatorResult
 
 from ..intelligent import has_intelligent_tariff, mock_intelligent_settings
@@ -29,9 +29,9 @@ from ..intelligent import has_intelligent_tariff, mock_intelligent_settings
 _LOGGER = logging.getLogger(__name__)
 
 class IntelligentCoordinatorResult(BaseCoordinatorResult):
-  settings: IntelligentSettings
+  settings: IntelligentDeviceSettings
 
-  def __init__(self, last_evaluated: datetime, request_attempts: int, settings: IntelligentSettings, last_error: Exception | None = None):
+  def __init__(self, last_evaluated: datetime, request_attempts: int, settings: IntelligentDeviceSettings, last_error: Exception | None = None):
     super().__init__(last_evaluated, request_attempts, REFRESH_RATE_IN_MINUTES_INTELLIGENT, None, last_error)
     self.settings = settings
 
@@ -87,7 +87,7 @@ async def async_refresh_intelligent_settings(
   
 async def async_setup_intelligent_settings_coordinator(hass, account_id: str, device_id: str, mock_intelligent_data: bool):
   # Reset data rates as we might have new information
-  hass.data[DOMAIN][account_id][DATA_INTELLIGENT_SETTINGS] = None
+  hass.data[DOMAIN][account_id][DATA_INTELLIGENT_SETTINGS.format(device_id)] = None
   
   async def async_update_intelligent_settings_data():
     """Fetch data from API endpoint."""
@@ -105,18 +105,18 @@ async def async_setup_intelligent_settings_coordinator(hass, account_id: str, de
     account_result = hass.data[DOMAIN][account_id][DATA_ACCOUNT]
     account_info = account_result.account if account_result is not None else None
       
-    hass.data[DOMAIN][account_id][DATA_INTELLIGENT_SETTINGS] = await async_refresh_intelligent_settings(
+    hass.data[DOMAIN][account_id][DATA_INTELLIGENT_SETTINGS.format(device_id)] = await async_refresh_intelligent_settings(
       current,
       client,
       account_info,
       device_id,
-      hass.data[DOMAIN][account_id][DATA_INTELLIGENT_SETTINGS] if DATA_INTELLIGENT_SETTINGS in hass.data[DOMAIN][account_id] else None,
+      hass.data[DOMAIN][account_id][DATA_INTELLIGENT_SETTINGS.format(device_id)] if DATA_INTELLIGENT_SETTINGS.format(device_id) in hass.data[DOMAIN][account_id] else None,
       mock_intelligent_data
     )
 
-    return hass.data[DOMAIN][account_id][DATA_INTELLIGENT_SETTINGS]
+    return hass.data[DOMAIN][account_id][DATA_INTELLIGENT_SETTINGS.format(device_id)]
 
-  hass.data[DOMAIN][account_id][DATA_INTELLIGENT_SETTINGS_COORDINATOR] = DataUpdateCoordinator(
+  hass.data[DOMAIN][account_id][DATA_INTELLIGENT_SETTINGS_COORDINATOR.format(device_id)] = DataUpdateCoordinator(
     hass,
     _LOGGER,
     name=f"intelligent_settings_{account_id}",

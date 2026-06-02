@@ -34,6 +34,9 @@ async def async_setup_entry(
     return True
 
 
+PARALLEL_UPDATES = 1
+
+
 class HyundaiKiaConnectLock(LockEntity, HyundaiKiaConnectEntity):
     def __init__(
         self,
@@ -42,7 +45,7 @@ class HyundaiKiaConnectLock(LockEntity, HyundaiKiaConnectEntity):
     ):
         HyundaiKiaConnectEntity.__init__(self, coordinator, vehicle)
         self._attr_unique_id = f"{DOMAIN}_{vehicle.id}_door_lock"
-        self._attr_name = f"{vehicle.name} Door Lock"
+        self._attr_translation_key = "door_lock"
 
     @property
     def icon(self):

@@ -5,14 +5,16 @@ mqtt:
   user: addons
   password: zoa9VaibookeeGho2BaiWu1eilotaYei5thooleiVeemoh9ja2Dahtheogh8eid1
 serial:
-  port: /dev/ttyACM0
-  adapter: deconz
+  port: tcp://172.16.21.183:7638
+  adapter: zstack
+  baudrate: 115200
+  rtscts: false
 frontend:
   enabled: true
   port: 8099
+external_converters:
+  - aurora_custom.js
 devices:
-  '0x00158d0001a16e08':
-    friendly_name: Bedroom Main Light
   '0x680ae2fffe957376':
     friendly_name: Stairs 1
   '0x680ae2fffe96ed14':
@@ -59,10 +61,28 @@ devices:
   '0xa4c138e31ec0007a':
     friendly_name: '0xa4c138e31ec0007a'
   '0x70b3d52b600930ff':
-    friendly_name: Tumble Dryer
+    friendly_name: dehumidifier
   '0x94b216fffe74f1b2':
     friendly_name: v2l
   '0xa4c1385bdd699073':
     friendly_name: Battery Sensor
+  '0x00158d0001a16e08':
+    friendly_name: Bedroom Main Light
+  '0x180df9fffee335c2':
+    friendly_name: Tumble Dryer
+  '0xec1bbdfffee4c301':
+    friendly_name: '0xec1bbdfffee4c301'
+  '0x08fd52fffeb06c52':
+    friendly_name: '0x08fd52fffeb06c52'
+  '0xa4c138be523ab701':
+    friendly_name: Landing
+  '0x180df9fffe125c28':
+    friendly_name: '0x180df9fffe125c28'
 groups: {}
-version: 4
+version: 5
+advanced:
+  log_level: debug
+  log_output:
+    - console
+availability:
+  enabled: true

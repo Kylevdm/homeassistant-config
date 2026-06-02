@@ -41,12 +41,12 @@ class OctopusEnergyIntelligentSmartCharge(CoordinatorEntity, SwitchEntity, Octop
   @property
   def unique_id(self):
     """The id of the sensor."""
-    return f"octopus_energy_{self._account_id}_intelligent_smart_charge"
+    return f"octopus_energy_{self._device.id}_intelligent_smart_charge"
     
   @property
   def name(self):
     """Name of the sensor."""
-    return f"Intelligent Smart Charge ({self._account_id})"
+    return f"Intelligent Smart Charge ({self._device.id})"
 
   @property
   def icon(self):
@@ -70,7 +70,7 @@ class OctopusEnergyIntelligentSmartCharge(CoordinatorEntity, SwitchEntity, Octop
       return self._state
 
     if settings_result.settings is not None:
-      self._state = settings_result.settings.smart_charge
+      self._state = not settings_result.settings.status.isSuspended
     
     self._attributes = dict_to_typed_dict(self._attributes)
     super()._handle_coordinator_update()

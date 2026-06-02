@@ -35,6 +35,9 @@ async def async_setup_entry(
     return True
 
 
+PARALLEL_UPDATES = 0
+
+
 class HyundaiKiaConnectTracker(TrackerEntity, HyundaiKiaConnectEntity):
     def __init__(
         self,
@@ -43,7 +46,7 @@ class HyundaiKiaConnectTracker(TrackerEntity, HyundaiKiaConnectEntity):
     ):
         HyundaiKiaConnectEntity.__init__(self, coordinator, vehicle)
         self._attr_unique_id = f"{DOMAIN}_{vehicle.id}_location"
-        self._attr_name = f"{vehicle.name} Location"
+        self._attr_translation_key = "location"
         self._attr_icon = "mdi:map-marker-outline"
 
     @property

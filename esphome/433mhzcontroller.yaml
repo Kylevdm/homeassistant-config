@@ -1,0 +1,32 @@
+esphome:
+  name: 433mhzcontroller
+  friendly_name: 433MhzController
+
+esp32:
+  board: esp32-c3-devkitm-1
+  framework:
+    type: esp-idf
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: "SDBFbdoFsT9dFOJlGxSXyAh3XcPOdMEgQQSEP9vLW9k="
+
+ota:
+  - platform: esphome
+    password: "d178f64979de1091f9ae5e8177eb23d0"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "433Mhzcontroller"
+    password: "F82CVJVwS7sV"
+
+captive_portal:
+    

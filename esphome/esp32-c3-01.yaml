@@ -1,0 +1,71 @@
+esphome:
+  name: esp32-c3-01
+  friendly_name: ESP32-C3-01
+
+esp32:
+  board: esp32-c3-devkitm-1
+  framework:
+    type: arduino
+    
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: "Z+sBD7LO2foMiDlWiVK+/bm2/+2NwJye4mciCvegVQ8="
+
+ota:
+  - platform: esphome
+    password: "c9e922b4f17999a02175857d0119d0fa"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Esp32-C3-01 Fallback Hotspot"
+    password: "azjckfIYtZXq"
+
+captive_portal:
+    
+spi:
+  clk_pin: GPIO4
+  miso_pin: GPIO2
+  mosi_pin: GPIO7
+
+cc1101:
+  cs_pin: GPIO10
+  output_power: 11
+  frequency: 433.92MHz  # Adjust for your region/devices
+
+remote_transmitter:
+  pin: GPIO20
+  carrier_duty_percent: 100%
+  id: tx
+
+remote_receiver:
+  pin: GPIO01
+  dump: raw
+  tolerance: 25%
+  filter: 200us  # More lenient
+  idle: 30ms    # Wait for full multi-burst (key change)
+  buffer_size: 4kb  # Bigger buffer
+
+button:
+  - platform: template
+    name: "Fan Toggle"
+    on_press:
+      - remote_transmitter.transmit_raw:
+          code: [1880, -410, 527, -795, 2544, -365]
+          repeat:
+            times: 12  # More repeats
+            wait_time: 8ms
+
+  - platform: template
+    name: "Shed Flood Light Toggle"
+    icon: "mdi:lightbulb"
+    on_press:
+      - remote_transmitter.transmit_pronto:
+          data: "0000 006D 000D 0000 0001 0028 0007 0003 0006 0009 0006 0009 0006 0004 0010 000A 0014 0015 0004 002B 0004 0006 0004 000C 0004 000B 0004 0007 000D 0181"

@@ -46,12 +46,12 @@ class OctopusEnergyIntelligentChargeTarget(CoordinatorEntity, RestoreNumber, Oct
   @property
   def unique_id(self):
     """The id of the sensor."""
-    return f"octopus_energy_{self._account_id}_intelligent_charge_target"
+    return f"octopus_energy_{self._device.id}_intelligent_charge_target"
     
   @property
   def name(self):
     """Name of the sensor."""
-    return f"Intelligent Charge Target ({self._account_id})"
+    return f"Intelligent Charge Target ({self._device.id})"
 
   @property
   def icon(self):
@@ -84,8 +84,8 @@ class OctopusEnergyIntelligentChargeTarget(CoordinatorEntity, RestoreNumber, Oct
     if settings_result is None or (self._last_updated is not None and self._last_updated > settings_result.last_retrieved):
       return self._state
     
-    if settings_result.settings is not None:
-      self._state = settings_result.settings.charge_limit_weekday
+    if settings_result.settings is not None and len(settings_result.settings.preferences.schedules) > 0:
+      self._state = settings_result.settings.preferences.schedules[0].max
 
     self._attributes = dict_to_typed_dict(self._attributes)
     super()._handle_coordinator_update()

@@ -1,91 +1,96 @@
 {
-    "0x00158d0001a16e08": {
-        "state": "ON",
-        "brightness": 254,
-        "linkquality": 255
-    },
     "0x680ae2fffe957376": {
         "state": "OFF",
-        "update": {
-            "state": "idle",
-            "installed_version": 587806257,
-            "latest_version": 587806257
-        },
         "update_available": false,
-        "linkquality": 255,
+        "linkquality": 90,
         "power_on_behavior": "off",
         "brightness": 254,
         "level_config": {
             "on_level": "previous"
-        }
-    },
-    "0x680ae2fffe96ed14": {
+        },
         "update": {
             "state": "idle",
             "installed_version": 587806257,
-            "latest_version": 587806257
-        },
+            "latest_version": 587806257,
+            "latest_source": "https://raw.githubusercontent.com/Koenkk/zigbee-OTA/master/images/IKEA/tradfri-light-unified-w_release_prod_v587806257_147c8812-e7f3-4999-b7eb-3da91009ab65.ota",
+            "latest_release_notes": "https://ww8.ikea.com/ikeahomesmart/releasenotes/releasenotes.html"
+        }
+    },
+    "0x680ae2fffe96ed14": {
         "update_available": false,
         "state": "OFF",
-        "linkquality": 255,
+        "linkquality": 167,
         "power_on_behavior": "on",
         "brightness": 254,
         "level_config": {
             "on_level": "previous"
+        },
+        "update": {
+            "state": "idle",
+            "installed_version": 587806257,
+            "latest_version": 587806257,
+            "latest_source": "https://raw.githubusercontent.com/Koenkk/zigbee-OTA/master/images/IKEA/tradfri-light-unified-w_release_prod_v587806257_147c8812-e7f3-4999-b7eb-3da91009ab65.ota",
+            "latest_release_notes": "https://ww8.ikea.com/ikeahomesmart/releasenotes/releasenotes.html"
         }
     },
     "0x7cb03eaa0a04fe91": {
+        "update_available": false,
+        "state": "ON",
+        "brightness": 254,
+        "linkquality": 131,
         "update": {
             "state": "idle",
             "installed_version": 16909584,
-            "latest_version": 16909584
-        },
-        "update_available": false,
-        "state": "OFF",
-        "brightness": 254,
-        "linkquality": 255
+            "latest_version": 16909584,
+            "latest_source": "https://raw.githubusercontent.com/Koenkk/zigbee-OTA/master/images/Osram/ZLL_MK_0x01020510_CLA60_W_CLEAR.ota",
+            "latest_release_notes": null
+        }
     },
     "0x00158d0001a1a06d": {
         "state": "OFF",
         "linkquality": 111
     },
     "0x7cb03eaa0a0481b5": {
-        "update": {
-            "state": "idle",
-            "installed_version": 16909584,
-            "latest_version": 16909584
-        },
         "update_available": false,
         "state": "ON",
-        "linkquality": 255,
-        "brightness": 254
-    },
-    "0x7cb03eaa0a0458f9": {
-        "state": "OFF",
+        "linkquality": 136,
+        "brightness": 254,
         "update": {
             "state": "idle",
             "installed_version": 16909584,
-            "latest_version": 16909584
-        },
+            "latest_version": 16909584,
+            "latest_source": "https://raw.githubusercontent.com/Koenkk/zigbee-OTA/master/images/Osram/ZLL_MK_0x01020510_CLA60_W_CLEAR.ota",
+            "latest_release_notes": null
+        }
+    },
+    "0x7cb03eaa0a0458f9": {
+        "state": "ON",
         "update_available": false,
-        "linkquality": 239,
-        "brightness": 254
+        "linkquality": 113,
+        "brightness": 254,
+        "update": {
+            "state": "idle",
+            "installed_version": 16909584,
+            "latest_version": 16909584,
+            "latest_source": "https://raw.githubusercontent.com/Koenkk/zigbee-OTA/master/images/Osram/ZLL_MK_0x01020510_CLA60_W_CLEAR.ota",
+            "latest_release_notes": null
+        }
     },
     "0x00158d000452357f": {
-        "linkquality": 255,
-        "voltage": 3035,
+        "linkquality": 100,
+        "voltage": 3025,
         "battery": 100,
-        "device_temperature": 25,
-        "power_outage_count": 1013,
-        "contact": true,
+        "device_temperature": 24,
+        "power_outage_count": 6426,
+        "contact": false,
         "trigger_count": 0
     },
     "0x5c0272fffebe2fb6": {
-        "current_heating_setpoint": 20.5,
-        "preset": "manual",
+        "current_heating_setpoint": 17,
+        "preset": "auto",
         "open_window": "OFF",
         "frost_protection": "OFF",
-        "local_temperature": 21.2,
+        "local_temperature": 23.5,
         "local_temperature_calibration": 0,
         "working_day": "mon_sun",
         "holiday_temperature": 17,
@@ -106,41 +111,46 @@
         "schedule_wednesday": "06:00/17 12:00/21 14:00/17 17:00/21 24:00/17",
         "schedule_thursday": "06:00/17 12:00/21 14:00/17 17:00/21 24:00/17",
         "online": "ON",
-        "linkquality": 247,
-        "update": {
-            "state": "idle",
-            "installed_version": "unknown"
-        },
+        "linkquality": 0,
         "update_available": false,
         "system_mode": "heat",
-        "error_status": 0
+        "error_status": 0,
+        "update": {
+            "state": "idle",
+            "installed_version": 69,
+            "latest_version": 69,
+            "latest_source": null,
+            "latest_release_notes": null
+        }
     },
     "0xa4c1381fa71fa2af": {
-        "temperature": 20.65,
-        "humidity": 61.79,
-        "battery": 95,
+        "temperature": 22.75,
+        "humidity": 58.16,
+        "battery": 93,
         "voltage": 2900,
-        "linkquality": 247
+        "linkquality": 103
     },
     "0xa4c1386591aac905": {
-        "temperature": 21.65,
-        "humidity": 55.83,
-        "linkquality": 255,
+        "temperature": 22.91,
+        "humidity": 52.7,
+        "linkquality": 122,
         "battery": 84,
         "voltage": 2900
     },
     "0xa4c1386ab09b48f2": {
         "voltage": 2800,
-        "battery": 70.5,
-        "temperature": 23.06,
-        "humidity": 56.97,
+        "battery": 2,
+        "temperature": 25.96,
+        "humidity": 53.21,
+        "update_available": false,
+        "linkquality": 100,
         "update": {
             "state": "idle",
             "installed_version": 19017729,
-            "latest_version": 19017729
-        },
-        "update_available": false,
-        "linkquality": 255
+            "latest_version": 19017729,
+            "latest_source": null,
+            "latest_release_notes": null
+        }
     },
     "0xa4c138b556862604": {
         "battery": 41,
@@ -150,56 +160,55 @@
         "occupancy": false,
         "tamper": false,
         "battery_low": false,
-        "linkquality": 79
+        "linkquality": 36
     },
     "0xa4c138f24e1cef1e": {
         "voltage": 2600,
         "battery": 50.5,
         "humidity": 55.2,
         "temperature": 17.62,
-        "update": {
-            "state": "idle",
-            "installed_version": 285224961,
-            "latest_version": 285224961
-        },
         "update_available": false,
         "linkquality": 191
     },
     "0xa4c138fb6e5add12": {
-        "temperature": 22.15,
+        "temperature": 23.6,
         "voltage": 3100,
         "battery": 100,
-        "humidity": 58.62,
+        "humidity": 52.45,
+        "update_available": false,
+        "linkquality": 103,
         "update": {
             "state": "idle",
             "installed_version": 19017729,
-            "latest_version": 19017729
-        },
-        "update_available": false,
-        "linkquality": 255
+            "latest_version": 19017729,
+            "latest_source": null,
+            "latest_release_notes": null
+        }
     },
     "0xa4c138b346675662": {
         "voltage": 3000,
         "battery": 100,
-        "humidity": 59.94,
-        "temperature": 21.09,
+        "humidity": 51.45,
+        "temperature": 19.77,
+        "update_available": false,
+        "linkquality": 213,
         "update": {
             "state": "idle",
             "installed_version": 285224961,
-            "latest_version": 285224961
-        },
-        "update_available": false,
-        "linkquality": 255
+            "latest_version": 285224961,
+            "latest_source": "https://raw.githubusercontent.com/Koenkk/zigbee-OTA/master/images/DIY/db15-0203-11003001-z03mmc.zigbee",
+            "latest_release_notes": null
+        }
     },
     "0xa4c1383663e5f7a1": {
         "battery": 100,
         "voltage": 2900,
         "keep_time": 60,
         "sensitivity": "medium",
-        "occupancy": true,
+        "occupancy": false,
         "tamper": false,
         "battery_low": false,
-        "linkquality": 255
+        "linkquality": 67
     },
     "0xa4c13843eb1e6c65": {
         "battery": 100,
@@ -215,90 +224,149 @@
         "state": "OFF",
         "color_mode": "color_temp",
         "color": {
-            "hue": 27,
-            "saturation": 92,
-            "h": 27,
-            "s": 92
+            "hue": 32,
+            "saturation": 82,
+            "h": 32,
+            "s": 82
         },
-        "color_temp": 454,
-        "linkquality": 63,
+        "color_temp": 370,
+        "linkquality": 36,
         "brightness": 3,
         "level_config": {
             "on_level": "previous"
-        }
+        },
+        "color_power_on_behavior": "previous"
     },
     "0xa4c138d082ef7de1": {
         "state": "OFF",
         "color_mode": "color_temp",
         "color": {},
-        "color_temp": 199,
-        "linkquality": 79,
-        "brightness": 5,
+        "color_temp": 238,
+        "linkquality": 0,
+        "brightness": 3,
         "level_config": {
             "on_level": "previous"
         }
     },
     "0xb40ecfd120a50000": {
         "color_mode": "color_temp",
-        "linkquality": 63,
-        "state": "OFF",
-        "color_temp": 454,
-        "brightness": 254,
+        "linkquality": 0,
+        "state": "ON",
+        "color_temp": 370,
+        "brightness": 252,
         "color": {
-            "hue": 27,
-            "saturation": 92,
-            "h": 27,
-            "s": 92
+            "hue": 32,
+            "saturation": 82,
+            "h": 32,
+            "s": 82,
+            "x": 0.4599,
+            "y": 0.4106
         }
     },
     "0xa4c138e31ec0007a": {
         "state": "ON",
         "color_mode": "color_temp",
         "color": {},
-        "linkquality": 255,
+        "linkquality": 87,
         "brightness": 255
     },
     "0x70b3d52b600930ff": {
-        "state": "ON",
+        "state": "OFF",
         "child_lock": "UNLOCK",
-        "linkquality": 255,
+        "linkquality": 0,
         "power": 0,
-        "current": 0.01,
-        "voltage": 223,
-        "energy": 21.84,
+        "current": 0,
+        "voltage": 226,
+        "energy": 88.18,
         "power_outage_memory": "on",
-        "indicator_mode": "off/on"
+        "indicator_mode": "off/on",
+        "countdown": 0
     },
     "0x94b216fffe74f1b2": {
         "state": "ON",
-        "power_outage_memory": "on",
+        "power_outage_memory": "off",
         "indicator_mode": "off/on",
         "temperature_threshold": 60,
         "temperature_breaker": "ON",
         "power_threshold": 4,
         "power_breaker": "ON",
-        "over_current_threshold": 15,
+        "over_current_threshold": 32,
         "over_current_breaker": "ON",
         "over_voltage_threshold": 250,
         "over_voltage_breaker": "ON",
         "under_voltage_threshold": 220,
         "under_voltage_breaker": "ON",
-        "temperature": 48.94,
-        "voltage": 203,
-        "energy": 692.71,
+        "temperature": 34.4,
+        "voltage": 54,
+        "energy": 1210.34,
         "power": 0,
-        "current": 0.36,
-        "linkquality": 255,
+        "current": 0,
+        "linkquality": 245,
         "countdown": 0
     },
     "0xa4c1385bdd699073": {
         "color_mode": "xy",
         "color": {
-            "x": 0.172,
-            "y": 0.747
+            "x": 0.2738,
+            "y": 0.7174
         },
         "brightness": 254,
         "state": "ON",
-        "linkquality": 255
+        "linkquality": 203,
+        "color_temp": 158
+    },
+    "0x00158d0001a16e08": {
+        "state": "ON",
+        "linkquality": 167,
+        "brightness": 254
+    },
+    "0x180df9fffee335c2": {
+        "state": "ON",
+        "power_on_behavior": "previous",
+        "linkquality": 167,
+        "update": {
+            "state": "available",
+            "installed_version": 33816580,
+            "latest_version": 33816613,
+            "latest_source": "https://raw.githubusercontent.com/Koenkk/zigbee-OTA/master/images/IKEA/tretakt_smart_plug_soc-0x1100-2.4.25-prod.ota.ota.signed",
+            "latest_release_notes": "https://ww8.ikea.com/ikeahomesmart/releasenotes/releasenotes.html"
+        }
+    },
+    "0xec1bbdfffee4c301": {
+        "temperature": 23.5,
+        "humidity": 45.6,
+        "battery": 50,
+        "voltage": 2600,
+        "linkquality": 81
+    },
+    "0x08fd52fffeb06c52": {
+        "battery": 60,
+        "voltage": 1200,
+        "linkquality": 81,
+        "update": {
+            "state": "idle",
+            "installed_version": 16777303,
+            "latest_version": 16777303,
+            "latest_source": "https://raw.githubusercontent.com/Koenkk/zigbee-OTA/master/images/IKEA/rodret-dimmer-soc_release_prod_v16777303_0a78457a-950c-4903-bfd1-67902aa66cf9.ota",
+            "latest_release_notes": "https://ww8.ikea.com/ikeahomesmart/releasenotes/releasenotes.html"
+        }
+    },
+    "0xa4c138be523ab701": {
+        "state_left": "OFF",
+        "state_right": "OFF",
+        "power_on_behavior_left": "previous",
+        "linkquality": 167
+    },
+    "0x180df9fffe125c28": {
+        "battery": 72,
+        "voltage": 1200,
+        "update": {
+            "state": "idle",
+            "installed_version": 16777303,
+            "latest_version": 16777303,
+            "latest_source": "https://raw.githubusercontent.com/Koenkk/zigbee-OTA/master/images/IKEA/rodret-dimmer-soc_release_prod_v16777303_0a78457a-950c-4903-bfd1-67902aa66cf9.ota",
+            "latest_release_notes": "https://ww8.ikea.com/ikeahomesmart/releasenotes/releasenotes.html"
+        },
+        "linkquality": 150
     }
 }

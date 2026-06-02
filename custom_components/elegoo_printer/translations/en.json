@@ -1,0 +1,206 @@
+{
+  "options": {
+    "step": {
+      "init": {
+        "description": "For help with configuration, please see the project's GitHub page.",
+        "data": {
+          "ip_address": "Printer IP Address",
+          "centauri_carbon": "Is this an FDM Printer",
+          "proxy_enabled": "Enable the proxy server",
+          "external_ip": "External Address (optional, for advanced network setups)"
+        },
+        "data_description": {
+          "external_ip": "Override auto-detected address with an IP address or hostname. Leave blank for automatic detection. Use for Kubernetes/Docker setups or when behind a reverse proxy. Ports 3030 and 3031 will be appended automatically."
+        }
+      },
+      "cc2_options": {
+        "title": "Centauri Carbon 2 Options",
+        "description": "Configure your Centauri Carbon 2 printer settings.",
+        "data": {
+          "ip_address": "Printer IP Address",
+          "cc2_access_code": "Access Code (optional)",
+          "gcode_proxy_url": "GCode proxy URL (optional)"
+        },
+        "data_description": {
+          "gcode_proxy_url": "Base URL of the cc2-gcode-capture-proxy (host, host:port, or http(s) URL; http is used if you omit the scheme). Leave blank to disable."
+        }
+      },
+      "mqtt_options": {
+        "title": "MQTT Printer Options",
+        "description": "Configure your MQTT printer settings.",
+        "data": {
+          "ip_address": "Printer IP Address"
+        }
+      },
+      "websocket_options": {
+        "title": "Printer Options",
+        "description": "For help with configuration, please see the project's GitHub page.",
+        "data": {
+          "ip_address": "Printer IP Address",
+          "proxy_enabled": "Enable the proxy server",
+          "external_ip": "External Address (optional, for advanced network setups)"
+        },
+        "data_description": {
+          "external_ip": "Override auto-detected address with an IP address or hostname. Leave blank for automatic detection. Use for Kubernetes/Docker setups or when behind a reverse proxy. Ports 3030 and 3031 will be appended automatically."
+        }
+      }
+    }
+  },
+  "config": {
+    "step": {
+      "discover_printers": {
+        "title": "Select Printer",
+        "description": "Choose a discovered printer from the list or opt to enter the IP address manually.",
+        "data": {
+          "selection": "Available Printers"
+        }
+      },
+      "manual_ip": {
+        "title": "Manual Setup",
+        "description": "Enter the IP address of your Elegoo printer. The integration will automatically detect the printer type and guide you through the appropriate setup steps.",
+        "data": {
+          "ip_address": "Printer IP Address",
+          "external_ip": "External Address (optional, for advanced network setups)"
+        },
+        "data_description": {
+          "external_ip": "Override auto-detected address with an IP address or hostname. Leave blank for automatic detection. Use for Kubernetes/Docker setups or when behind a reverse proxy. Ports 3030 and 3031 will be appended automatically."
+        }
+      },
+      "fdm_options": {
+        "title": "FDM Printer Options",
+        "description": "Configure additional options for your selected printer. See the project's GitHub page for more information about the proxy server.",
+        "data": {
+          "proxy_enabled": "Enable the proxy server"
+        }
+      },
+      "resin_options": {
+        "title": "Resin Printer Options",
+        "description": "Enabling the camera can create instability in the printer. Use at your own risk. See the project's GitHub page for details and best practices.",
+        "data": {
+          "camera_enabled": "Enable the camera"
+        }
+      },
+      "cc2_options": {
+        "title": "Centauri Carbon 2 Options",
+        "description": "Configure your Centauri Carbon 2 printer. If your printer has access code authentication enabled, enter your access code below. Leave blank if no access code is required.",
+        "data": {
+          "cc2_access_code": "Access Code (optional)"
+        }
+      },
+      "cc2_auth_check": {
+        "title": "Centauri Carbon 2 Authentication",
+        "description": "**IMPORTANT:** Check your printer's settings before continuing.\n\nOn your printer, go to: **Settings → Network**\n\n1. Enable **LAN Only Mode** (required for connection)\n2. Then check the access code setting at **Settings → Network → Access Code**\n\n• If the access code shows 'Off' or is blank/empty, select **No**\n• If you have set a custom access code, select **Yes**\n\nMost printers ship with no access code by default.",
+        "data": {
+          "requires_access_code": "Does your printer require an access code?"
+        }
+      },
+      "cc2_access_code_input": {
+        "title": "Enter Access Code",
+        "description": "Find your printer's access code at: Settings → Network → Access Code\n\n**Note:** Make sure **LAN Only Mode** is enabled on your printer (Settings → Network → LAN Only Mode) before continuing.",
+        "data": {
+          "cc2_access_code": "Access Code"
+        }
+      }
+    },
+    "error": {
+      "connection": "Unable to connect to the printer.",
+      "unknown": "Unknown error occurred.",
+      "invalid_printer_selection": "Invalid printer selection.",
+      "no_printer_found": "No printer could be found at the specified IP address.",
+      "validation_no_printer_found": "Validation failed: No printer was found.",
+      "no_printer_selected_or_ip_provided": "Please select a discovered printer or provide an IP address.",
+      "manual_options_no_printer_found": "The selected printer could not be found to apply options.",
+      "init_no_printer_found": "Failed to initialize: The printer could not be found.",
+      "cc2_options_no_printer_found": "The CC2 printer could not be found.",
+      "cc2_access_code_required": "This printer requires an access code for authentication.",
+      "cc2_authentication_failed": "Failed to authenticate. Make sure LAN Only Mode is enabled on your printer (Settings → Network → LAN Only Mode), then verify the access code in Settings → Network → Access Code.",
+      "gcode_proxy_unreachable": "Cannot reach the GCode proxy server. Verify the address or URL and that the proxy is running.",
+      "gcode_proxy_invalid": "Invalid GCode proxy address. Use a host or host:port, or an http(s) URL without duplicate schemes."
+    },
+    "abort": {
+      "already_configured": "This entry is already configured."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "print_status": {
+        "name": "Print Status",
+        "state": {
+          "idle": "Idle",
+          "homing": "Homing",
+          "dropping": "Dropping",
+          "printing": "Printing",
+          "lifting": "Lifting",
+          "pausing": "Pausing",
+          "paused": "Paused",
+          "stopping": "Stopping",
+          "stopped": "Stopped",
+          "complete": "Complete",
+          "file_checking": "Checking File",
+          "recovery": "Recovery",
+          "loading": "Loading",
+          "preheating": "Preheating",
+          "leveling": "Leveling"
+        }
+      },
+      "current_status": {
+        "name": "Current Status",
+        "state": {
+          "idle": "Idle",
+          "printing": "Printing",
+          "file_transferring": "File Transferring",
+          "exposure_testing": "Exposure Testing",
+          "devices_testing": "Device Testing",
+          "leveling": "Leveling",
+          "input_shaping": "Input Shaping",
+          "stopping": "Stopping",
+          "stopped": "Stopped",
+          "homing": "Homing",
+          "loading_unloading": "Loading / Unloading",
+          "pid_tuning": "PID Tuning",
+          "recovery": "Recovery"
+        }
+      },
+      "print_error": {
+        "name": "Print Error",
+        "state": {
+          "none": "None",
+          "check": "Check",
+          "fileio": "Fileio",
+          "invalid_resolution": "Invalid resolution",
+          "unknown_format": "Unknown format",
+          "unknown_model": "Unknown model"
+        }
+      },
+      "error_status_reason": {
+        "name": "Error Status Reason",
+        "state": {
+          "ok": "Normal",
+          "temp_error": "Over-temperature error (nozzle/bed)",
+          "filament_runout": "Filament runout detected",
+          "filament_jam": "Filament jam or clog detected",
+          "level_failed": "Auto-bed leveling failed",
+          "udisk_remove": "USB drive removed during print",
+          "home_failed_x": "X-axis homing failure",
+          "home_failed_z": "Z-axis homing failure",
+          "home_failed": "General homing failure",
+          "bed_adhesion_failed": "Print detachment from bed",
+          "error": "General printing error",
+          "move_abnormal": "Motor movement abnormality",
+          "home_failed_y": "Y-axis homing failure",
+          "file_error": "G-code file error",
+          "camera_error": "Camera connection error",
+          "network_error": "Network connection error",
+          "server_connect_failed": "Server connection failed",
+          "disconnect_app": "App disconnected during print",
+          "nozzle_temp_sensor_offline": "Nozzle temperature sensor offline",
+          "bed_temp_sensor_offline": "Bed temperature sensor offline",
+          "filament_about_to_runout": "Filament runout imminent"
+        }
+      },
+      "end_time": {
+        "name": "End Time"
+      }
+    }
+  }
+}

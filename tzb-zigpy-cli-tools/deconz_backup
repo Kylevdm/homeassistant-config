@@ -1,0 +1,48 @@
+{
+    "metadata": {
+        "version": 1,
+        "format": "zigpy/open-coordinator-backup",
+        "source": "zigpy-deconz@0.25.5",
+        "internal": {
+            "creation_time": "2026-03-25T22:08:06.016186+00:00",
+            "node": {
+                "ieee": "00212effff0594b0",
+                "nwk": "0000",
+                "type": "coordinator",
+                "model": "Conbee II",
+                "manufacturer": "dresden elektronik",
+                "version": "0x26680700"
+            },
+            "network": {
+                "tc_link_key": {
+                    "key": "5a6967426565416c6c69616e63653039",
+                    "frame_counter": 0
+                },
+                "tc_address": "00212effff0594b0",
+                "nwk_manager": "0000"
+            },
+            "link_key_seqs": {},
+            "route_table": {},
+            "tx_power": null,
+            "deconz": {
+                "version": "0x26680700"
+            }
+        }
+    },
+    "stack_specific": {},
+    "coordinator_ieee": "00212effff0594b0",
+    "pan_id": "1a62",
+    "extended_pan_id": "dddddddddddddddd",
+    "nwk_update_id": 0,
+    "security_level": 5,
+    "channel": 11,
+    "channel_mask": [
+        11
+    ],
+    "network_key": {
+        "key": "01030507090b0d0f00020406080a0c0d",
+        "sequence_number": 0,
+        "frame_counter": 72054681
+    },
+    "devices": []
+}

@@ -6,13 +6,18 @@ from homeassistant.helpers.update_coordinator import (
   CoordinatorEntity,
 )
 from homeassistant.util.dt import (as_utc)
+from homeassistant.helpers import issue_registry as ir
+
 
 from ..utils import (
-  get_active_tariff
+  Tariff,
+  get_active_tariff,
+  private_rates_to_target_timeframe_data
 )
 from ..utils.rate_information import get_min_max_average_rates
 from ..utils.requests import calculate_next_refresh
-
+from ..const import DOMAIN, EVENT_TARGET_TIMEFRAME_UPDATE_DATA_SOURCE, EVENT_TARGET_TIMEFRAME_UPDATE_DATA_SOURCE_ID, REPAIR_TARIFF_RATES_EMPTY
+from ..utils.repairs import safe_repair_key
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -47,25 +52,35 @@ class BaseCoordinatorResult:
     self.last_error = last_error
     _LOGGER.debug(f'last_evaluated: {last_evaluated}; last_retrieved: {last_retrieved}; request_attempts: {request_attempts}; refresh_rate_in_minutes: {refresh_rate_in_minutes}; next_refresh: {self.next_refresh}; last_error: {self.last_error}')
 
+def has_rates_changed(old_rates: list, new_rates: list):
+  if len(old_rates) != len(new_rates):
+    return True
+  else:
+    for i in range(len(old_rates)):
+      if old_rates[i] != new_rates[i]:
+        return True
+
+  return False
+
 def __raise_rate_event(event_key: str,
-                       rates: list,
+                       new_rates: list,
+                       old_rates: list,
                        additional_attributes: "dict[str, Any]",
                        fire_event: Callable[[str, "dict[str, Any]"], None]):
   
-  min_max_average_rates = get_min_max_average_rates(rates)
+  if has_rates_changed(old_rates, new_rates) == False:
+    _LOGGER.debug(f'Not firing event {event_key} as rates have not changed')
+    return False
 
-  event_data = { "rates": rates, "min_rate": min_max_average_rates["min"], "max_rate": min_max_average_rates["max"], "average_rate": min_max_average_rates["average"] }
+  min_max_average_rates = get_min_max_average_rates(new_rates)
+
+  event_data = { "rates": new_rates, "min_rate": min_max_average_rates["min"], "max_rate": min_max_average_rates["max"], "average_rate": min_max_average_rates["average"] }
   event_data.update(additional_attributes)
   fire_event(event_key, event_data)
 
-def raise_rate_events(now: datetime,
-                      rates: list, 
-                      additional_attributes: "dict[str, Any]",
-                      fire_event: Callable[[str, "dict[str, Any]"], None],
-                      previous_event_key: str,
-                      current_event_key: str,
-                      next_event_key: str):
-  
+  return True
+
+def __rates_to_current_previous_next_rates(now: datetime, rates: list):
   today_start = as_utc(now.replace(hour=0, minute=0, second=0, microsecond=0))
   today_end = as_utc((now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0))
 
@@ -81,9 +96,30 @@ def raise_rate_events(now: datetime,
     else:
       current_rates.append(rate)
 
-  __raise_rate_event(previous_event_key, previous_rates, additional_attributes, fire_event)
-  __raise_rate_event(current_event_key, current_rates, additional_attributes, fire_event)
-  __raise_rate_event(next_event_key, next_rates, additional_attributes, fire_event)
+  return (previous_rates, current_rates, next_rates)
+
+def raise_rate_events(current_datetime: datetime,
+                      new_rates: list,
+                      previous_datetime: datetime,
+                      previous_rates: list,
+                      additional_attributes: "dict[str, Any]",
+                      fire_event: Callable[[str, "dict[str, Any]"], None],
+                      previous_event_key: str,
+                      current_event_key: str,
+                      next_event_key: str):
+  
+  (old_previous_rates, old_current_rates, old_next_rates) = __rates_to_current_previous_next_rates(previous_datetime, previous_rates)
+  (new_previous_rates, new_current_rates, new_next_rates) = __rates_to_current_previous_next_rates(current_datetime, new_rates)
+
+  previous_event_raised = __raise_rate_event(previous_event_key, new_previous_rates, old_previous_rates, additional_attributes, fire_event)
+  current_event_raised = __raise_rate_event(current_event_key, new_current_rates, old_current_rates, additional_attributes, fire_event)
+  next_event_raised = __raise_rate_event(next_event_key, new_next_rates, old_next_rates, additional_attributes, fire_event)
+
+  if (previous_event_raised or current_event_raised or next_event_raised):
+    fire_event(EVENT_TARGET_TIMEFRAME_UPDATE_DATA_SOURCE, { 
+      "data_source_id": EVENT_TARGET_TIMEFRAME_UPDATE_DATA_SOURCE_ID.format(additional_attributes["mpan"] if "mpan" in additional_attributes else additional_attributes["mprn"], additional_attributes["serial_number"]),
+      "data": private_rates_to_target_timeframe_data(new_rates) 
+    })
 
 def get_electricity_meter_tariff(current: datetime, account_info, target_mpan: str, target_serial_number: str):
   if len(account_info["electricity_meter_points"]) > 0:
@@ -129,3 +165,18 @@ def combine_rates(old_rates: list | None, new_rates: list | None, period_from: d
     combined_rates.sort(key=lambda x: x["start"])
 
   return combined_rates
+
+def raise_rates_empty(hass, account_id: str, tariff: Tariff, mprn_mpan: str, serial_number: str, is_electricity: bool):
+  ir.async_create_issue(
+    hass,
+    DOMAIN,
+    safe_repair_key(REPAIR_TARIFF_RATES_EMPTY, account_id, tariff.code),
+    is_fixable=False,
+    severity=ir.IssueSeverity.WARNING,
+    learn_more_url="https://bottlecapdave.github.io/HomeAssistant-OctopusEnergy/repairs/tariff_rates_empty",
+    translation_key="tariff_rates_empty",
+    translation_placeholders={ "account_id": account_id, "product_code": tariff.product, "tariff_code": tariff.code, "product_code": tariff.product, "mprn_mpan": mprn_mpan, "serial_number": serial_number, "meter_type": "electricity" if is_electricity else "gas" },
+  )
+
+def clear_rates_empty(hass, account_id: str, tariff: Tariff):
+  ir.async_delete_issue(hass, DOMAIN, safe_repair_key(REPAIR_TARIFF_RATES_EMPTY, account_id, tariff.code))

@@ -2,7 +2,11 @@ substitutions:
   device_description: Growatt Inverter
   friendly_name:  Growatt Inverter
   name: Growatt
-  
+  on_boot:
+  priority: 800    # run early, before most components
+  then:
+    - lambda: |-
+        id(growatt_production_today).publish_state(0.0);  // reset to 0
 esphome:
   name: growatt
 
@@ -41,11 +45,14 @@ modbus:
   uart_id: gw_uart
   flow_control_pin: D2 # GPIO4
 
-
+binary_sensor:
+  - platform: status
+    name: "Growatt Controller Status"
+    
 # My model: Growatt MIC 2000 TL-X single phase inverter
 sensor:
   - platform: growatt_solar
-    update_interval: 5s
+    update_interval: 1s
     protocol_version: RTU2 # RTU2
 
     inverter_status:
@@ -70,14 +77,12 @@ sensor:
     active_power:
       name: "Growatt Grid Active Power"
 
-    pv_active_power:
-      name: "Growatt PV Active Power"
-
     frequency:
       name: "Growatt Frequency"
 
     energy_production_day:
       name: "Growatt Today's Generation"
+      id: growatt_production_today
 
     total_energy_production:
       name: "Growatt Total Energy Production"

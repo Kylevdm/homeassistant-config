@@ -1,0 +1,153 @@
+esphome:
+  name: "esphome-emerson"
+  friendly_name: Emerson_Vertiv_R48
+  min_version: 2025.10.1
+  on_boot:
+    priority: -100
+    then:
+      - delay: 1000ms
+      - logger.log: "Initialisation terminée, démarrage du bus CAN"
+      - number.set:
+          id: emerson_r48_output_voltage
+          value: 53.12
+      - number.set:
+          id: emerson_r48_max_output_current
+          value: 80
+      - number.set:
+          id: emerson_r48_max_input_current
+          value: 13
+
+external_components:
+  - source: github://Kylevdm/esphome-emerson-vertiv-r48
+    refresh: 0s
+
+esp32: 
+  board: nodemcu-32s
+  framework:
+    type: esp-idf
+
+logger:
+
+api:
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "Esphome-Emerson"
+    password: "qwertyzxc"
+
+ota:
+ - platform: esphome
+   password: "ota_password"
+
+captive_portal:
+
+esp32_ble_tracker:  # Defaults work for WiFi
+bluetooth_proxy:
+  active: true
+
+#mqtt:
+  #broker: !secret mqtt_host
+  #username: !secret mqtt_v2l
+  #password: !secret mqtt_pass_v2l
+  #client_id: emerson_r48_3000e3_v2l
+  #id: mqtt_client
+  #topic_prefix: eh/emerson
+
+
+spi:
+  - id: McpSpi
+    clk_pin: GPIO18
+    mosi_pin: GPIO23
+    miso_pin: GPIO19
+
+canbus:
+  - platform: mcp2515
+    id: can
+    spi_id: McpSpi
+    use_extended_id: true
+    cs_pin: GPIO5
+    can_id: 0x0607FF83
+    bit_rate: 125kbps
+    mode: NORMAL
+
+emerson_r48:
+  canbus_id: can
+  update_interval: 500ms
+
+binary_sensor:
+  - platform: status
+    name: "R48 v2l Controller Status"
+
+sensor:
+  - platform: emerson_r48
+    output_voltage:
+      name: Output voltage
+      id: r48_output_voltage 
+    output_current:
+      name: Output current
+      id: r48_output_current
+    output_temp:
+      name: Temperature
+    input_voltage:
+      name: AC Voltage
+    max_output_current:
+      name: "DC Max Current"
+      unit_of_measurement: "%"
+      icon: "mdi:percent"
+  
+   # Power calculation template - CORRECTED C++ SYNTAX
+  - platform: template
+    name: "R48 Output Power"
+    id: outpower
+    unit_of_measurement: W
+    device_class: power
+    state_class: measurement
+    update_interval: 2s
+    accuracy_decimals: 2
+    lambda: |-
+      if (!isnan(id(r48_output_current).state) && 
+          !isnan(id(r48_output_voltage).state) && 
+          id(r48_output_current).state > 0) {
+        return id(r48_output_current).state * id(r48_output_voltage).state;
+      } else {
+        return 0.0;
+      }
+
+number:
+  - platform: emerson_r48
+    output_voltage:
+      name: "R48 Set output voltage"
+      id: emerson_r48_output_voltage
+    max_output_current:
+      name: "R48 Max output current"
+      id: emerson_r48_max_output_current
+      unit_of_measurement: '%'
+    max_input_current:
+      name: "R48 Max input current"
+      id: emerson_r48_max_input_current
+
+button:
+  - platform: emerson_r48
+    set_offline_values:
+      name: Set offline values
+  - platform: restart
+    name: "Restart ESP"
+
+switch:
+  - platform: emerson_r48
+    ac_sw:
+      name: "R48 AC switch Turn OFF"
+      id: emerson_r48_ac_sw
+      restore_mode: ALWAYS_ON
+    dc_sw:
+      name: "R48 DC switch Turn OFF"
+      id: emerson_r48_dc_sw
+      restore_mode: ALWAYS_ON
+    fan_sw:
+      name: "R48 FAN switch MAX"
+      id: emerson_r48_fan_sw
+    led_sw:
+      name: "R48 LED switch"
+      id: emerson_r48_led_sw

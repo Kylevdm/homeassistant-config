@@ -17,6 +17,25 @@ secrets.yaml
 # SSH
 .ssh/
 
+# Python cache
+__pycache__/
+*.pyc
+
+# TTS cache
+tts/
+
+# Runtime state
+.ha_run.lock
+
+# HA internal caches
+.cache/
+
+# Claude Code internals
+.claudecode/
+
+# Zigbee2MQTT node_modules
+zigbee2mqtt/external_converters/node_modules/
+
 # Other
 .google.token
 known_devices.yaml

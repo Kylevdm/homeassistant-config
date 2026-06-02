@@ -1,7 +1,5 @@
 {
     "services": {
-        "update_target_config": "mdi:invoice-edit",
-        "update_rolling_target_config": "mdi:invoice-edit",
         "purge_invalid_external_statistic_ids": "mdi:delete",
         "refresh_previous_consumption_data": "mdi:refresh",
         "join_octoplus_saving_session_event": "mdi:leaf",
@@ -14,6 +12,8 @@
         "boost_heat_pump_zone": "mdi:thermometer-plus",
         "boost_water_heater": "mdi:thermometer-plus",
         "set_heat_pump_flow_temp_config": "mdi:heat-pump",
-        "refresh_intelligent_dispatches": "mdi:refresh"
+        "set_heat_pump_hush_mode": "mdi:heat-pump",
+        "refresh_intelligent_dispatches": "mdi:refresh",
+        "get_point_in_time_intelligent_dispatch_history": "mdi:history"
     }
 }

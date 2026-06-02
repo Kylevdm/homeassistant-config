@@ -6,28 +6,36 @@ from homeassistant.util.dt import (utcnow, parse_datetime)
 
 from ..utils import get_active_tariff
 
-from ..const import CONFIG_MAIN_INTELLIGENT_RATE_MODE_STARTED_DISPATCHES_ONLY, CONFIG_MAIN_INTELLIGENT_RATE_MODE_PENDING_AND_STARTED_DISPATCHES, INTELLIGENT_SOURCE_BUMP_CHARGE_OPTIONS, INTELLIGENT_SOURCE_SMART_CHARGE_OPTIONS, REFRESH_RATE_IN_MINUTES_INTELLIGENT
+from ..const import CONFIG_MAIN_INTELLIGENT_RATE_MODE_PLANNED_AND_STARTED_DISPATCHES, CONFIG_MAIN_INTELLIGENT_RATE_MODE_STARTED_DISPATCHES_ONLY, INTELLIGENT_DEVICE_KIND_ELECTRIC_VEHICLE_CHARGERS, INTELLIGENT_DEVICE_KIND_ELECTRIC_VEHICLES, INTELLIGENT_SOURCE_BUMP_CHARGE_OPTIONS, INTELLIGENT_SOURCE_SMART_CHARGE_OPTIONS, REFRESH_RATE_IN_MINUTES_INTELLIGENT
 
-from ..api_client.intelligent_settings import IntelligentSettings
+from ..storage.intelligent_dispatches_history import IntelligentDispatchesHistory, IntelligentDispatchesHistoryItem
 from ..api_client.intelligent_dispatches import IntelligentDispatchItem, IntelligentDispatches, SimpleIntelligentDispatchItem
 from ..api_client.intelligent_device import IntelligentDevice
+from ..api_client.intelligent_device_settings import IntelligentDeviceSettings
 
 mock_intelligent_data_key = "MOCK_INTELLIGENT_DATA"
 
 _LOGGER = logging.getLogger(__name__)
 
-def mock_intelligent_dispatches(current_state = "SMART_CONTROL_CAPABLE") -> IntelligentDispatches:
+mock_intelligent_device_id_one = "1F-2B-3C-4D-5E-6F"
+mock_intelligent_device_id_two = "6F-5B-4C-3D-2E-1F"
+
+# Expected successful dispatches (UTC)
+# 07:00 - 08:00 Smart Charge
+# 10:10 - 10:30 Smart Charge (Late dispatch)
+# 17:40 - 18:20 Smart Charge (Late dispatch)
+# 19:00 - 20:00 Smart Charge
+
+# Not expected to dispatch
+# 11:00 - 11:20 Smart Charge (Removed before dispatch)
+# 12:00 - 13:00 Bump Charge
+# 14:00 - 14:02 Smart Charge (Too short to dispatch)
+
+def mock_intelligent_dispatches(current_state = "SMART_CONTROL_CAPABLE", device_id = mock_intelligent_device_id_one) -> IntelligentDispatches:
   planned: list[IntelligentDispatchItem] = []
   completed: list[IntelligentDispatchItem] = []
 
   dispatches = [
-    IntelligentDispatchItem(
-      utcnow().replace(hour=19, minute=0, second=0, microsecond=0),
-      utcnow().replace(hour=20, minute=0, second=0, microsecond=0),
-      1,
-      INTELLIGENT_SOURCE_SMART_CHARGE_OPTIONS[0],
-      "home"
-    ),
     IntelligentDispatchItem(
       utcnow().replace(hour=7, minute=0, second=0, microsecond=0),
       utcnow().replace(hour=8, minute=0, second=0, microsecond=0),
@@ -35,15 +43,30 @@ def mock_intelligent_dispatches(current_state = "SMART_CONTROL_CAPABLE") -> Inte
       None,
       "home"
     ),
-
     IntelligentDispatchItem(
       utcnow().replace(hour=12, minute=0, second=0, microsecond=0),
       utcnow().replace(hour=13, minute=0, second=0, microsecond=0),
       4.6,
       INTELLIGENT_SOURCE_BUMP_CHARGE_OPTIONS[-1].upper(),
       "home"
+    ),
+    IntelligentDispatchItem(
+      utcnow().replace(hour=14, minute=0, second=0, microsecond=0),
+      utcnow().replace(hour=14, minute=2, second=0, microsecond=0),
+      1.1,
+      None,
+      "home"
     )
   ]
+
+  if device_id == mock_intelligent_device_id_one:
+    dispatches.append(IntelligentDispatchItem(
+      utcnow().replace(hour=19, minute=0, second=0, microsecond=0),
+      utcnow().replace(hour=20, minute=0, second=0, microsecond=0),
+      1,
+      INTELLIGENT_SOURCE_SMART_CHARGE_OPTIONS[0],
+      "home"
+    ))
 
   # Simulate a pending dispatch being removed just before it begins
   if (utcnow() <= utcnow().replace(hour=11, minute=0, second=0, microsecond=0) - timedelta(minutes=REFRESH_RATE_IN_MINUTES_INTELLIGENT)):
@@ -69,10 +92,11 @@ def mock_intelligent_dispatches(current_state = "SMART_CONTROL_CAPABLE") -> Inte
       )
     )
 
-  if (utcnow() >= utcnow().replace(hour=18, minute=0, second=0, microsecond=0) - timedelta(minutes=REFRESH_RATE_IN_MINUTES_INTELLIGENT)):
+  # Simulate a dispatch coming in late
+  if (utcnow() >= utcnow().replace(hour=17, minute=40, second=0, microsecond=0) - timedelta(minutes=REFRESH_RATE_IN_MINUTES_INTELLIGENT)):
     dispatches.append(
       IntelligentDispatchItem(
-        utcnow().replace(hour=18, minute=0, second=0, microsecond=0),
+        utcnow().replace(hour=17, minute=40, second=0, microsecond=0),
         utcnow().replace(hour=18, minute=20, second=0, microsecond=0),
         1.2,
         INTELLIGENT_SOURCE_SMART_CHARGE_OPTIONS[0].upper(),
@@ -100,24 +124,92 @@ def mock_intelligent_dispatches(current_state = "SMART_CONTROL_CAPABLE") -> Inte
   return IntelligentDispatches(current_state, planned, completed)
 
 def mock_intelligent_settings():
-  return IntelligentSettings(
-    True,
-    90,
-    80,
-    time(7,20),
-    time(9,10),
-  )
+  data = {
+    "id": "00000000-0000-0000-0000-000000000001",
+    "status": {
+      "isSuspended": False
+    },
+    "preferences": {
+      "targetType": "RELATIVE_STATE_OF_CHARGE",
+      "unit": "PERCENTAGE",
+      "mode": "CHARGE",
+      "schedules": [
+        {
+          "dayOfWeek": "MONDAY",
+          "time": "07:30:00",
+          "min": None,
+          "max": 43,
+          "upperLimit": 100
+        },
+        {
+          "dayOfWeek": "TUESDAY",
+          "time": "07:30:00",
+          "min": None,
+          "max": 43,
+          "upperLimit": 100
+        },
+        {
+          "dayOfWeek": "WEDNESDAY",
+          "time": "07:30:00",
+          "min": None,
+          "max": 43,
+          "upperLimit": 100
+        },
+        {
+          "dayOfWeek": "THURSDAY",
+          "time": "07:30:00",
+          "min": None,
+          "max": 43,
+          "upperLimit": 100
+        },
+        {
+          "dayOfWeek": "FRIDAY",
+          "time": "07:30:00",
+          "min": None,
+          "max": 43,
+          "upperLimit": 100
+        },
+        {
+          "dayOfWeek": "SATURDAY",
+          "time": "07:30:00",
+          "min": None,
+          "max": 43,
+          "upperLimit": 100
+        },
+        {
+          "dayOfWeek": "SUNDAY",
+          "time": "07:30:00",
+          "min": None,
+          "max": 43,
+          "upperLimit": 100
+        }
+      ]
+    }
+  }
 
-def mock_intelligent_device():
-  return IntelligentDevice(
-    "1",
-    "MYENERGI",
-    "Myenergi",
-    "Zappi smart EV",
-    None,
-    6.5,
-    True
-  )
+  return IntelligentDeviceSettings.model_validate(data)
+
+def mock_intelligent_devices():
+  return [
+    IntelligentDevice(
+      mock_intelligent_device_id_one,
+      "MYENERGI",
+      "Myenergi",
+      "Zappi smart EV",
+      None,
+      6.5,
+      INTELLIGENT_DEVICE_KIND_ELECTRIC_VEHICLE_CHARGERS
+    ),
+    IntelligentDevice(
+      mock_intelligent_device_id_two,
+      "TESLA",
+      "TESLA",
+      "Model Y",
+      26.4,
+      None,
+      INTELLIGENT_DEVICE_KIND_ELECTRIC_VEHICLES
+    )
+  ]
 
 def is_intelligent_product(product_code: str):
   # Need to ignore Octopus Intelligent Go tariffs
@@ -138,40 +230,92 @@ def has_intelligent_tariff(current: datetime, account_info):
 
   return False
 
-def __get_dispatch(rate, dispatches: list[IntelligentDispatchItem], expected_sources: list[str]):
-  if dispatches is not None:
-    for dispatch in dispatches:
+def get_applicable_dispatch_periods(planned_dispatches: list[IntelligentDispatchItem],
+                                    started_dispatches: list[SimpleIntelligentDispatchItem],
+                                    mode: str,
+                                    minimum_dispatch_duration_in_minutes: int = 0):
+  dispatches: list[SimpleIntelligentDispatchItem] = []
+  if planned_dispatches is not None and mode == CONFIG_MAIN_INTELLIGENT_RATE_MODE_PLANNED_AND_STARTED_DISPATCHES:
+    for planned_dispatch in planned_dispatches:
       # Source as none counts as smart charge - https://forum.octopus.energy/t/pending-and-completed-octopus-intelligent-dispatches/8510/102
-      if ((expected_sources is None or dispatch.source is None or (dispatch.source.lower() in expected_sources if dispatch.source is not None else False)) and 
-          ((dispatch.start <= rate["start"] and dispatch.end >= rate["end"]) or # Rate is within dispatch
-           (dispatch.start >= rate["start"] and dispatch.start < rate["end"]) or # dispatch starts within rate
-           (dispatch.end > rate["start"] and dispatch.end <= rate["end"]) # dispatch ends within rate
-          )
-        ):
-        return dispatch
-    
-  return None
+      if (planned_dispatch.source is not None and (planned_dispatch.source.lower() in INTELLIGENT_SOURCE_SMART_CHARGE_OPTIONS) == False):
+        continue
+
+      dispatch_exists = False
+
+      for existing_dispatch in dispatches:
+        # If the planned dispatch starts within the existing dispatch, extend the end
+        if (planned_dispatch.start >= existing_dispatch.start and planned_dispatch.start <= existing_dispatch.end):
+          existing_dispatch.end = max(existing_dispatch.end, planned_dispatch.end)
+          dispatch_exists = True
+        # If the planned dispatch ends within the existing dispatch, extend the start
+        if (planned_dispatch.end <= existing_dispatch.end and planned_dispatch.end >= existing_dispatch.start):
+          existing_dispatch.start = min(existing_dispatch.start, planned_dispatch.start)
+          dispatch_exists = True
+
+      if dispatch_exists == False:
+        dispatches.append(SimpleIntelligentDispatchItem(planned_dispatch.start, planned_dispatch.end))
+
+  if started_dispatches is not None:
+    for started_dispatch in started_dispatches:
+      dispatch_exists = False
+
+      for existing_dispatch in dispatches:
+        # If the started dispatch starts within the existing dispatch, extend the end
+        if (started_dispatch.start >= existing_dispatch.start and started_dispatch.start <= existing_dispatch.end):
+          existing_dispatch.end = max(existing_dispatch.end, started_dispatch.end)
+          dispatch_exists = True
+        # If the started dispatch ends within the existing dispatch, extend the start
+        if (started_dispatch.end <= existing_dispatch.end and started_dispatch.end >= existing_dispatch.start):
+          existing_dispatch.start = min(existing_dispatch.start, started_dispatch.start)
+          dispatch_exists = True
+
+      if dispatch_exists == False:
+        dispatches.append(SimpleIntelligentDispatchItem(started_dispatch.start, started_dispatch.end))
+
+    if planned_dispatches is not None and mode == CONFIG_MAIN_INTELLIGENT_RATE_MODE_STARTED_DISPATCHES_ONLY:
+      for dispatch in dispatches:
+        for planned_dispatch in planned_dispatches:
+          # If the planned dispatch starts within the existing dispatch and ends after it, extend by 30 minutes
+          # so we don't end up with sensors going off and on during the transition from planned to started dispatches
+          if (planned_dispatch.start >= dispatch.start and
+              planned_dispatch.start <= dispatch.end and
+              planned_dispatch.end > dispatch.end):
+            dispatch.end = dispatch.end + timedelta(minutes=30)
+
+  dispatches = [dispatch for dispatch in dispatches if (dispatch.end - dispatch.start).total_seconds() >= minimum_dispatch_duration_in_minutes * 60]
+  dispatches.sort(key = lambda x: x.start)
+  return dispatches
 
 def adjust_intelligent_rates(rates,
                              planned_dispatches: list[IntelligentDispatchItem],
                              started_dispatches: list[SimpleIntelligentDispatchItem],
-                             mode: str):
+                             mode: str,
+                             minimum_dispatch_duration_in_minutes: int = 0):
   if len(rates) < 1:
     return rates
 
   off_peak_rate =  min(rates, key = lambda x: x["value_inc_vat"])
   adjusted_rates = []
 
+  applicable_dispatches = get_applicable_dispatch_periods(planned_dispatches, started_dispatches, mode, minimum_dispatch_duration_in_minutes)
+
   for rate in rates:
     if rate["value_inc_vat"] == off_peak_rate["value_inc_vat"]:
       adjusted_rates.append(rate)
       continue
 
-    is_planned_dispatch = __get_dispatch(rate, planned_dispatches, INTELLIGENT_SOURCE_SMART_CHARGE_OPTIONS) is not None
-    is_started_dispatch = __get_dispatch(rate, started_dispatches, None) is not None
+    applicable_dispatch: SimpleIntelligentDispatchItem | None = next(
+      (dispatch for dispatch in applicable_dispatches 
+      if (dispatch.start <= rate["start"] and dispatch.end >= rate["end"]) or # Rate is within dispatch
+          (dispatch.start >= rate["start"] and dispatch.start < rate["end"]) or # dispatch starts within rate
+          (dispatch.end > rate["start"] and dispatch.end <= rate["end"]) # dispatch ends within rate
+      ),
+      None
+    )
 
-    if ((mode == CONFIG_MAIN_INTELLIGENT_RATE_MODE_PENDING_AND_STARTED_DISPATCHES and (is_planned_dispatch or is_started_dispatch)) or
-        (mode == CONFIG_MAIN_INTELLIGENT_RATE_MODE_STARTED_DISPATCHES_ONLY and is_started_dispatch)):
+    if (applicable_dispatch is not None):
+      _LOGGER.debug(f"Adjusting rate from {rate['value_inc_vat']} to {off_peak_rate['value_inc_vat']} due to applicable dispatch from {applicable_dispatch.start} to {applicable_dispatch.end}")
       adjusted_rates.append({
         "start": rate["start"],
         "end": rate["end"],
@@ -201,6 +345,38 @@ def clean_previous_dispatches(time: datetime, dispatches: list[IntelligentDispat
       new_dispatches[(dispatch.start, dispatch.end)] = dispatch
 
   return list(new_dispatches.values())
+
+def clean_intelligent_dispatch_history(time: datetime,
+                                       dispatches: IntelligentDispatches,
+                                       history: list[IntelligentDispatchesHistoryItem]) -> list[IntelligentDispatchItem]:
+  history.sort(key = lambda x: x.timestamp)
+
+  new_history: list[IntelligentDispatchesHistoryItem] = []
+  previous_history_item: IntelligentDispatchesHistoryItem | None = None
+  min_time = time - timedelta(days=2)
+  
+  for history_item in history:
+
+    if history_item.timestamp >= min_time:
+      # Ensure we have one record before the minimum stored time so we know what we had at the start
+      if (len(new_history) == 0 and previous_history_item is not None):
+        new_history.append(previous_history_item)
+
+      new_history.append(history_item)
+
+    previous_history_item = history_item
+
+  # Ensure we have one record before the minimum stored time so we know what we had at the start
+  if (len(new_history) == 0 and previous_history_item is not None):
+    new_history.append(previous_history_item)
+
+  if len(new_history) < 1 or has_dispatches_changed(new_history[-1].dispatches, dispatches):
+    new_history.append(IntelligentDispatchesHistoryItem(
+      time,
+      dispatches)
+    )
+
+  return new_history
 
 def dictionary_list_to_dispatches(dispatches: list):
   items = []
@@ -233,6 +409,21 @@ def simple_dispatches_to_dictionary_list(dispatches: list[SimpleIntelligentDispa
       items.append(dispatch.to_dict())
 
   return items
+
+def get_current_and_next_dispatching_periods(current: datetime, applicable_dispatches: list[SimpleIntelligentDispatchItem]):
+  current_dispatch = None
+  next_dispatch = None
+
+  if applicable_dispatches is not None:
+    for applicable_dispatch in applicable_dispatches:
+      if current >= applicable_dispatch.start:
+        if current < applicable_dispatch.end:
+          current_dispatch = applicable_dispatch
+      else:
+        next_dispatch = applicable_dispatch
+        break
+  
+  return (current_dispatch, next_dispatch)
 
 class IntelligentFeatures:
   def __init__(self,
@@ -270,7 +461,9 @@ FULLY_SUPPORTED_INTELLIGENT_PROVIDERS = [
   "SMART_PEAR",
   "HYPERVOLT",
   "INDRA",
-  "OCPP"
+  "OCPP",
+  "OCTOPUS_ENERGY",
+  "VOLKSWAGEN"
 ]
 
 def get_intelligent_features(provider: str) -> IntelligentFeatures:
@@ -284,3 +477,44 @@ def get_intelligent_features(provider: str) -> IntelligentFeatures:
         return IntelligentFeatures(False, True, True, True, True, True, True)
 
   return IntelligentFeatures(True, False, False, False, False, False, False)
+
+def device_type_to_friendly_string(device_type: str) -> str:
+  if device_type == INTELLIGENT_DEVICE_KIND_ELECTRIC_VEHICLE_CHARGERS:
+    return "Electric Vehicle Charger"
+  elif device_type == INTELLIGENT_DEVICE_KIND_ELECTRIC_VEHICLES:
+    return "Electric Vehicle"
+  else:
+    return device_type
+  
+def has_dispatch_items_changed(existing_dispatches: list[SimpleIntelligentDispatchItem], new_dispatches: list[SimpleIntelligentDispatchItem]):
+  if len(existing_dispatches) != len(new_dispatches):
+    return True
+
+  if len(existing_dispatches) > 0:
+    for i in range(0, len(existing_dispatches)):
+      if (existing_dispatches[i].start != new_dispatches[i].start or
+          existing_dispatches[i].end != new_dispatches[i].end):
+        return True
+
+  return False
+  
+def has_dispatches_changed(existing_dispatches: IntelligentDispatches, new_dispatches: IntelligentDispatches):
+  return (
+    existing_dispatches.current_state != new_dispatches.current_state or
+    has_dispatch_items_changed(existing_dispatches.completed, new_dispatches.completed) or
+    has_dispatch_items_changed(existing_dispatches.planned, new_dispatches.planned) or
+    has_dispatch_items_changed(existing_dispatches.started, new_dispatches.started)
+  )
+
+def get_applicable_intelligent_dispatch_history(history: IntelligentDispatchesHistory, time: datetime) -> IntelligentDispatchesHistoryItem  | None:
+  if history is None or history.history is None or len(history.history) == 0:
+    return None
+
+  applicable_history_item: IntelligentDispatchesHistoryItem | None = None
+  for history_item in history.history:
+    if history_item.timestamp <= time:
+      applicable_history_item = history_item
+    else:
+      break
+
+  return applicable_history_item
